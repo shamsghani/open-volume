@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller / Build artifacts
+build/
+dist/
+*.spec
+
+# Virtual Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Editor / IDE metadata
+.vscode/
+.idea/
+.obsidian/
+
+# Scratch & Logs
+*.log
+scratch/
+scratch_*.py
+test_*_screenshot*.png
+current_screen.png
+main_running_test.png
+test_visible_screen.png
+verified_*.png
+screen_*.png
+widget_crop.png
+
+# Windows thumbnail cache
+Thumbs.db
+desktop.ini

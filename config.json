@@ -1,0 +1,30 @@
+{
+  "hotkey": {
+    "ctrl_numlock": true,
+    "double_tap_numlock": true,
+    "double_tap_max_interval_ms": 400
+  },
+  "volume": {
+    "step_percent": 5,
+    "fine_step_percent": 2,
+    "sound_feedback": true
+  },
+  "behavior": {
+    "auto_hide_seconds": 6,
+    "cycle_wraparound": true
+  },
+  "appearance": {
+    "position": "bottom-right",
+    "margin_x": 28,
+    "margin_y": 60,
+    "width": 360,
+    "max_visible_apps": 6,
+    "accent_color": "#00E5A3",
+    "bg_color": "#121318",
+    "card_bg": "#1A1B24",
+    "selected_bg": "#242838",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#8E90A6"
+  }
+}
+

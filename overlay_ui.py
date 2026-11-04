@@ -1,0 +1,321 @@
+import tkinter as tk
+from tkinter import font as tkfont
+import ctypes
+from ctypes import wintypes
+import time
+
+user32 = ctypes.windll.user32
+
+class RECT(ctypes.Structure):
+    _fields_ = [
+        ("left", ctypes.c_long),
+        ("top", ctypes.c_long),
+        ("right", ctypes.c_long),
+        ("bottom", ctypes.c_long)
+    ]
+
+def get_primary_work_area() -> RECT:
+    """Gets the work area of the primary display (excluding the Windows taskbar)."""
+    rc = RECT()
+    user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(rc), 0)  # SPI_GETWORKAREA
+    return rc
+
+class OverlayWidget:
+    """A floating, always-on-top, non-activating HUD overlay widget for the Numpad Audio Layer."""
+
+    def __init__(self, root: tk.Tk, config: dict, on_timeout_callback=None):
+        self.root = root
+        self.config = config
+        self.on_timeout = on_timeout_callback
+
+        self.visible = False
+        self.apps = []
+        self.selected_index = 0
+        self.last_activity_time = 0
+        self.auto_hide_seconds = config.get("behavior", {}).get("auto_hide_seconds", 6)
+
+        # Style colors
+        app_cfg = config.get("appearance", {})
+        self.accent_color = app_cfg.get("accent_color", "#00E5A3")
+        self.bg_color = app_cfg.get("bg_color", "#121318")
+        self.card_bg = app_cfg.get("card_bg", "#1A1B24")
+        self.selected_bg = app_cfg.get("selected_bg", "#242838")
+        self.text_primary = app_cfg.get("text_primary", "#FFFFFF")
+        self.text_secondary = app_cfg.get("text_secondary", "#8E90A6")
+        self.width = app_cfg.get("width", 360)
+        self.margin_x = app_cfg.get("margin_x", 24)
+        self.margin_y = app_cfg.get("margin_y", 16)
+        self.max_visible_apps = app_cfg.get("max_visible_apps", 6)
+
+        # Window setup
+        self.win = tk.Toplevel(root)
+        self.win.withdraw()
+        self.win.overrideredirect(True)
+        self.win.attributes("-topmost", True)
+        self.win.config(bg=self.bg_color)
+
+        # Canvas for custom rendering
+        self.canvas = tk.Canvas(
+            self.win,
+            bg=self.bg_color,
+            highlightthickness=1,
+            highlightbackground="#2A2D3C",
+            bd=0
+        )
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+
+        # Win32 non-activating style so it never steals window focus
+        self._apply_no_activate_style()
+
+        # Timer loop for auto-hide
+        self._check_timer()
+
+    def _get_toplevel_hwnd(self) -> int:
+        """Returns the real top-level Win32 HWND for the Tkinter Toplevel window."""
+        try:
+            self.win.update_idletasks()
+            frame_hex = self.win.wm_frame()
+            if frame_hex:
+                return int(frame_hex, 16)
+        except Exception:
+            pass
+        inner = self.win.winfo_id()
+        parent = user32.GetParent(inner)
+        return parent if parent else inner
+
+    def _apply_no_activate_style(self):
+        """Sets WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW and WS_EX_TOPMOST so the HUD never unfocuses active games/windows."""
+        try:
+            hwnd = self._get_toplevel_hwnd()
+            GWL_EXSTYLE = -20
+            WS_EX_NOACTIVATE = 0x08000000
+            WS_EX_TOOLWINDOW = 0x00000080
+            WS_EX_TOPMOST = 0x00000008
+
+            old_style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            new_style = old_style | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST
+            user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new_style)
+
+            # Re-assert TOPMOST & NOACTIVATE via SetWindowPos
+            HWND_TOPMOST = -1
+            SWP_NOMOVE = 0x0002
+            SWP_NOSIZE = 0x0001
+            SWP_NOACTIVATE = 0x0010
+            SWP_SHOWWINDOW = 0x0040
+            user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW)
+        except Exception as e:
+            print(f"[Overlay] Error setting no-activate style: {e}")
+
+    def _reposition(self, height: int):
+        # Position cleanly on the Primary Monitor above taskbar
+        work_area = get_primary_work_area()
+        x = work_area.right - self.width - self.margin_x
+        y = work_area.bottom - height - self.margin_y
+        self.win.geometry(f"{self.width}x{height}+{x}+{y}")
+
+    def show(self):
+        self.visible = True
+        self.last_activity_time = time.time()
+        self.render()
+        self.win.deiconify()
+        self.win.lift()
+        self.win.attributes("-topmost", True)
+        self._apply_no_activate_style()
+        self.win.update_idletasks()
+
+    def hide(self):
+        self.visible = False
+        self.win.withdraw()
+
+    def is_visible(self) -> bool:
+        return self.visible
+
+    def reset_timer(self):
+        self.last_activity_time = time.time()
+
+    def update_data(self, apps: list, selected_index: int):
+        self.apps = apps
+        self.selected_index = selected_index
+        self.reset_timer()
+        if self.visible:
+            self.render()
+
+    def _check_timer(self):
+        if self.visible and self.auto_hide_seconds > 0:
+            if time.time() - self.last_activity_time > self.auto_hide_seconds:
+                if self.on_timeout:
+                    self.on_timeout()
+                else:
+                    self.hide()
+        self.root.after(200, self._check_timer)
+
+    def render(self):
+        self.canvas.delete("all")
+        if not self.apps:
+            height = 120
+            self._reposition(height)
+            self.canvas.create_text(
+                self.width // 2, 60,
+                text="No active audio apps found",
+                fill=self.text_secondary,
+                font=("Segoe UI", 11)
+            )
+            return
+
+        sel_app = self.apps[self.selected_index] if 0 <= self.selected_index < len(self.apps) else self.apps[0]
+
+        # Dynamic height calculation
+        list_count = min(len(self.apps), self.max_visible_apps)
+        height = 48 + 98 + (list_count * 32) + 40
+        self._reposition(height)
+
+        y = 12
+
+        # 1. Header
+        self.canvas.create_oval(18, y + 4, 26, y + 12, fill=self.accent_color, outline="")
+        self.canvas.create_text(
+            34, y + 8,
+            anchor="w",
+            text="NUMPAD LAYER 2 : AUDIO MIXER",
+            fill=self.text_primary,
+            font=("Segoe UI", 9, "bold")
+        )
+        self.canvas.create_text(
+            self.width - 18, y + 8,
+            anchor="e",
+            text="ACTIVE",
+            fill=self.accent_color,
+            font=("Segoe UI", 8, "bold")
+        )
+        y += 28
+
+        # 2. Main Focus Card (Selected App)
+        card_x1, card_y1 = 14, y
+        card_x2, card_y2 = self.width - 14, y + 90
+        # Card background
+        self.canvas.create_rectangle(
+            card_x1, card_y1, card_x2, card_y2,
+            fill=self.card_bg, outline="#2A2D3C", width=1
+        )
+        # Left accent stripe
+        self.canvas.create_rectangle(
+            card_x1, card_y1, card_x1 + 4, card_y2,
+            fill=self.accent_color, outline=""
+        )
+
+        # Selected App Name
+        app_name = sel_app['name']
+        if len(app_name) > 24:
+            app_name = app_name[:22] + "..."
+        self.canvas.create_text(
+            card_x1 + 16, card_y1 + 22,
+            anchor="w",
+            text=app_name,
+            fill=self.text_primary,
+            font=("Segoe UI", 13, "bold")
+        )
+
+        # Volume Badge / Mute status
+        if sel_app['muted']:
+            vol_badge = "MUTED"
+            badge_color = "#FF4B5C"
+        else:
+            vol_badge = f"{sel_app['volume']}%"
+            badge_color = self.accent_color
+
+        self.canvas.create_text(
+            card_x2 - 16, card_y1 + 22,
+            anchor="e",
+            text=vol_badge,
+            fill=badge_color,
+            font=("Segoe UI", 12, "bold")
+        )
+
+        # Progress Bar
+        bar_x1 = card_x1 + 16
+        bar_y1 = card_y1 + 52
+        bar_x2 = card_x2 - 16
+        bar_y2 = bar_y1 + 14
+
+        # Track background
+        self.canvas.create_rectangle(
+            bar_x1, bar_y1, bar_x2, bar_y2,
+            fill="#272A38", outline=""
+        )
+        # Fill
+        fill_width = int((bar_x2 - bar_x1) * (sel_app['volume'] / 100.0))
+        if fill_width > 0:
+            fill_color = "#FF4B5C" if sel_app['muted'] else self.accent_color
+            self.canvas.create_rectangle(
+                bar_x1, bar_y1, bar_x1 + fill_width, bar_y2,
+                fill=fill_color, outline=""
+            )
+
+        y += 102
+
+        # 3. Compact App List
+        start_idx = 0
+        if len(self.apps) > self.max_visible_apps:
+            start_idx = max(0, min(self.selected_index - 2, len(self.apps) - self.max_visible_apps))
+
+        end_idx = min(start_idx + self.max_visible_apps, len(self.apps))
+
+        for idx in range(start_idx, end_idx):
+            item = self.apps[idx]
+            is_sel = (idx == self.selected_index)
+
+            row_y1 = y
+            row_y2 = y + 28
+            row_x1 = 14
+            row_x2 = self.width - 14
+
+            if is_sel:
+                self.canvas.create_rectangle(
+                    row_x1, row_y1, row_x2, row_y2,
+                    fill=self.selected_bg, outline=""
+                )
+                marker = "► "
+                name_color = self.text_primary
+                font_weight = "bold"
+            else:
+                marker = f"[{idx}] " if idx < 10 else "   "
+                name_color = self.text_secondary
+                font_weight = "normal"
+
+            # Name
+            row_name = item['name']
+            if len(row_name) > 22:
+                row_name = row_name[:20] + "..."
+            self.canvas.create_text(
+                row_x1 + 10, row_y1 + 14,
+                anchor="w",
+                text=f"{marker}{row_name}",
+                fill=name_color,
+                font=("Segoe UI", 9, font_weight)
+            )
+
+            # Vol text
+            row_vol_text = "MUTED" if item['muted'] else f"{item['volume']}%"
+            row_vol_color = "#FF4B5C" if item['muted'] else (self.accent_color if is_sel else self.text_secondary)
+            self.canvas.create_text(
+                row_x2 - 10, row_y1 + 14,
+                anchor="e",
+                text=row_vol_text,
+                fill=row_vol_color,
+                font=("Segoe UI", 9, "bold" if is_sel else "normal")
+            )
+
+            y += 32
+
+        # 4. Footer shortcuts legend
+        y += 6
+        self.canvas.create_line(14, y, self.width - 14, y, fill="#232530")
+        y += 12
+        legend = "[8/2] Cycle   [+/-] Vol   [5] Mute   [NumLk] Exit"
+        self.canvas.create_text(
+            self.width // 2, y,
+            anchor="center",
+            text=legend,
+            fill=self.text_secondary,
+            font=("Segoe UI", 8)
+        )

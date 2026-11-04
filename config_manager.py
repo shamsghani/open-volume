@@ -1,0 +1,80 @@
+import json
+import os
+import sys
+
+DEFAULT_CONFIG = {
+    "hotkey": {
+        "ctrl_numlock": True,
+        "double_tap_numlock": True,
+        "double_tap_max_interval_ms": 400
+    },
+    "volume": {
+        "step_percent": 5,
+        "fine_step_percent": 2,
+        "sound_feedback": True
+    },
+    "behavior": {
+        "auto_hide_seconds": 6,
+        "cycle_wraparound": True
+    },
+    "appearance": {
+        "position": "bottom-right",
+        "margin_x": 28,
+        "margin_y": 60,
+        "width": 360,
+        "max_visible_apps": 6,
+        "accent_color": "#00E5A3",
+        "bg_color": "#121318",
+        "card_bg": "#1A1B24",
+        "selected_bg": "#242838",
+        "text_primary": "#FFFFFF",
+        "text_secondary": "#8E90A6"
+    }
+}
+
+class ConfigManager:
+    def __init__(self, config_path: str = None):
+        if config_path is None:
+            if getattr(sys, "frozen", False):
+                base_dir = os.path.dirname(sys.executable)
+            else:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+            config_path = os.path.join(base_dir, "config.json")
+        self.config_path = config_path
+        self.config = self.load()
+
+    def load(self) -> dict:
+        if os.path.exists(self.config_path):
+            try:
+                with open(self.config_path, "r", encoding="utf-8") as f:
+                    user_cfg = json.load(f)
+                return self._merge_defaults(user_cfg, DEFAULT_CONFIG)
+            except Exception as e:
+                print(f"[Config] Error loading {self.config_path}: {e}. Using defaults.")
+        return DEFAULT_CONFIG.copy()
+
+    def _merge_defaults(self, target: dict, defaults: dict) -> dict:
+        res = defaults.copy()
+        for k, v in target.items():
+            if isinstance(v, dict) and k in res and isinstance(res[k], dict):
+                res[k] = self._merge_defaults(v, res[k])
+            else:
+                res[k] = v
+        return res
+
+    def save(self):
+        try:
+            with open(self.config_path, "w", encoding="utf-8") as f:
+                json.dump(self.config, f, indent=2)
+        except Exception as e:
+            print(f"[Config] Error saving {self.config_path}: {e}")
+
+    def get(self, *keys, default=None):
+        curr = self.config
+        for k in keys:
+            if isinstance(curr, dict) and k in curr:
+                curr = curr[k]
+            else:
+                return default
+        return curr
+

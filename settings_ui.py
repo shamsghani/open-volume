@@ -302,7 +302,18 @@ class SettingsWindow:
             bg="#1A1B24", fg="#FFFFFF", selectcolor="#242838", activebackground="#1A1B24",
             activeforeground="#00E5A3", font=("Segoe UI", 9)
         )
-        anim_cb.pack(anchor="w", pady=(4, 10))
+        anim_cb.pack(anchor="w", pady=(4, 4))
+
+        # Startup toggle
+        import startup_manager
+        current_startup = startup_manager.is_startup_enabled()
+        self.startup_var = tk.BooleanVar(value=current_startup)
+        startup_cb = tk.Checkbutton(
+            right_col, text="Start with Windows on Boot", variable=self.startup_var,
+            bg="#1A1B24", fg="#FFFFFF", selectcolor="#242838", activebackground="#1A1B24",
+            activeforeground="#00E5A3", font=("Segoe UI", 9)
+        )
+        startup_cb.pack(anchor="w", pady=(0, 10))
 
         # Accent Color Palette
         tk.Label(right_col, text="Accent Theme:", fg="#FFFFFF", bg="#1A1B24", font=("Segoe UI", 9)).pack(anchor="w", pady=(0, 6))
@@ -427,6 +438,8 @@ class SettingsWindow:
         from config_manager import DEFAULT_CONFIG
         self.local_cfg = json.loads(json.dumps(DEFAULT_CONFIG))
         self.mode_var.set(self.local_cfg.get("mode", "hybrid"))
+        if hasattr(self, "startup_var"):
+            self.startup_var.set(False)
         self._refresh_binding_rows()
         curr_pos = self.local_cfg.get("appearance", {}).get("position", "bottom-right")
         self._refresh_position_buttons(curr_pos)
@@ -440,6 +453,12 @@ class SettingsWindow:
     def _save_and_apply(self):
         self.local_cfg["mode"] = self.mode_var.get()
         self.local_cfg.setdefault("appearance", {})["animation_enabled"] = self.anim_var.get()
+
+        # Update startup setting
+        import startup_manager
+        startup_desired = self.startup_var.get()
+        self.local_cfg.setdefault("behavior", {})["start_on_boot"] = startup_desired
+        startup_manager.set_startup_enabled(startup_desired)
 
         # Update manager config and save to disk
         self.config_mgr.config = self.local_cfg

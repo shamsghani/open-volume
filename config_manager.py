@@ -46,7 +46,8 @@ DEFAULT_CONFIG = {
     },
     "behavior": {
         "auto_hide_seconds": 6,
-        "cycle_wraparound": True
+        "cycle_wraparound": True,
+        "start_on_boot": False
     },
     "appearance": {
         "position": "bottom-right",

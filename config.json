@@ -70,7 +70,8 @@
   },
   "behavior": {
     "auto_hide_seconds": 6,
-    "cycle_wraparound": true
+    "cycle_wraparound": true,
+    "start_on_boot": false
   },
   "appearance": {
     "position": "top-center",

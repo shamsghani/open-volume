@@ -106,6 +106,10 @@ class MacropadAudioApp:
         self.tray_icon = None
         self._setup_tray()
 
+        # Sync startup state with config
+        import startup_manager
+        startup_manager.sync_with_config(self.config)
+
     def _poll_action_queue(self):
         """Continuously processes actions queued by the background keyboard hook thread."""
         try:
@@ -129,6 +133,8 @@ class MacropadAudioApp:
         self.overlay.update_data(self.mixer.get_apps(), self.mixer.get_selected_index())
         self.overlay.show()
         self._update_tray_state()
+        import startup_manager
+        startup_manager.sync_with_config(new_cfg)
 
     def _dispatch_layer_exit(self):
         self.action_queue.put((self._handle_layer_exit, ()))
@@ -245,6 +251,13 @@ class MacropadAudioApp:
         def _toggle_anim(icon, item):
             self.action_queue.put((self._toggle_animation, ()))
 
+        def _is_startup(item):
+            import startup_manager
+            return startup_manager.is_startup_enabled()
+
+        def _toggle_startup(icon, item):
+            self.action_queue.put((self._toggle_startup_action, ()))
+
         position_menu = pystray.Menu(
             item("Top Left", _set_pos("top-left"), checked=_is_pos("top-left"), radio=True),
             item("Top Center", _set_pos("top-center"), checked=_is_pos("top-center"), radio=True),
@@ -262,6 +275,7 @@ class MacropadAudioApp:
             pystray.Menu.SEPARATOR,
             item("Widget Position", position_menu),
             item("Slide & Fade Animation", _toggle_anim, checked=_is_anim),
+            item("Start with Windows", _toggle_startup, checked=_is_startup),
             item("Refresh Audio Sessions", self._tray_refresh_sessions),
             item("Open Config File", self._tray_open_config),
             pystray.Menu.SEPARATOR,
@@ -322,6 +336,17 @@ class MacropadAudioApp:
         self.config["appearance"]["animation_enabled"] = new_val
         self.config_mgr.save()
         self.overlay.animation_enabled = new_val
+
+    def _toggle_startup_action(self):
+        import startup_manager
+        curr = startup_manager.is_startup_enabled()
+        new_val = not curr
+        print(f"[App] Toggling Start with Windows -> {'ENABLED' if new_val else 'DISABLED'}")
+        if startup_manager.set_startup_enabled(new_val):
+            if "behavior" not in self.config:
+                self.config["behavior"] = {}
+            self.config["behavior"]["start_on_boot"] = new_val
+            self.config_mgr.save()
 
     def _update_tray_state(self):
         if self.tray_icon:

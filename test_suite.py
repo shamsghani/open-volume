@@ -147,6 +147,27 @@ class TestKeyboardHookLogic(unittest.TestCase):
         self.assertNotIn(13, hook.suppressed_vks, "VK_RETURN should not be globally suppressed!")
         print("  [PASS] Main Enter key is strictly isolated from Numpad Enter.")
 
+class TestStartupManager(unittest.TestCase):
+    """Verifies Windows startup registration and shortcut creation."""
+
+    def test_01_startup_toggle_and_cleanup(self):
+        import startup_manager
+        initial_state = startup_manager.is_startup_enabled()
+
+        # Test enable
+        res_enable = startup_manager.set_startup_enabled(True)
+        self.assertTrue(res_enable, "Failed to create startup shortcut!")
+        self.assertTrue(startup_manager.is_startup_enabled(), "Startup shortcut was not detected on disk!")
+
+        # Test disable
+        res_disable = startup_manager.set_startup_enabled(False)
+        self.assertTrue(res_disable, "Failed to remove startup shortcut!")
+        self.assertFalse(startup_manager.is_startup_enabled(), "Startup shortcut still exists after disable!")
+
+        # Restore initial state
+        startup_manager.set_startup_enabled(initial_state)
+        print("\n  [PASS] Startup shortcut creation, detection, and removal verified.")
+
 def run_all_tests():
     print("=" * 65)
     print("   MOUNTAIN EVEREST NUMPAD MACROPAD - FULL TEST SUITE")
@@ -157,13 +178,14 @@ def run_all_tests():
     suite.addTest(loader.loadTestsFromTestCase(TestAudioMixer))
     suite.addTest(loader.loadTestsFromTestCase(TestOverlayHUD))
     suite.addTest(loader.loadTestsFromTestCase(TestKeyboardHookLogic))
+    suite.addTest(loader.loadTestsFromTestCase(TestStartupManager))
 
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
 
     print("\n" + "=" * 65)
     if result.wasSuccessful():
-        print("  [SUCCESS] ALL TESTS PASSED! (Audio, Overlay, Hook)")
+        print("  [SUCCESS] ALL TESTS PASSED! (Audio, Overlay, Hook, Startup)")
     else:
         print(f"  [FAILED] FAILURES: {len(result.failures)} | ERRORS: {len(result.errors)}")
     print("=" * 65)

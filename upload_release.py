@@ -20,7 +20,7 @@ def publish_release():
     token = get_token()
     owner = "shamsghani"
     repo = "open-volume"
-    tag = "v1.2.1"
+    tag = "v1.3.0"
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -29,40 +29,45 @@ def publish_release():
     }
 
     # Release body notes
-    body_md = """## 🎛️ Open-Volume / Numpad Audio Layer (v1.2.1)
+    body_md = """## 🎛️ Open-Volume / Numpad Audio Layer (v1.3.0)
 
-A hotfix and enhancement update adding **8-voice polyphonic sound playback** (preventing audio cut-outs during rapid spamming) and **Windows 11 system tray fixes**.
+A major feature release introducing **Windows Startup Integration**, convenience install/uninstall scripts, and enhanced configuration controls!
 
 ---
 
-### ✨ What's New in v1.2.1
+### ✨ What's New in v1.3.0
 
-#### 1. 🔊 8-Voice Native Polyphonic Audio Engine
-- **No More Disappearing Sounds on Rapid Spam**: When spamming or holding `+` / `-`, each keystroke now triggers an independent voice in an 8-voice native WinMM `waveOut` audio pool.
-- Keypresses overlap naturally into a clean, ratcheted mechanical purr rather than cutting out, muting into silence, or buffering.
-- **Zero Buffer Lag**: Because each audio burst is only 45ms and rendered polyphonically, sound ends within 45ms of releasing the key.
+#### 1. 🚀 Native Windows Startup Integration
+- **Automatic Startup on Boot**: Open-Volume can now start silently when logging into Windows.
+- **Settings UI Toggle**: Check the **"Start with Windows on Boot"** box in the Settings dashboard.
+- **System Tray Toggle**: Right-click the system tray icon and check/uncheck **"Start with Windows"** on the fly.
+- **1-Click Convenience Scripts**: Included `install_startup.bat` and `uninstall_startup.bat` in the root folder.
+- **Silent Background Launch**: Configured to launch via `run_background.vbs` without flashing or leaving an open command prompt window.
 
-#### 2. 🪟 Windows 11 System Tray Fixes
-- **Interactive Desktop Binding**: Fixed an issue where the tray icon creation thread failed to register with the interactive Explorer shell on Windows 11.
-- **High-Contrast Cyan Icon**: Updated the tray graphic to use the high-visibility mint/cyan logo with an active status badge, ensuring maximum visibility on dark and light Windows 11 taskbars.
-- **Taskbar Pinned Guidance**: By default, Windows 11 places new tray icons inside the taskbar overflow menu (`^` chevron). Click the `^` chevron, grab the cyan Open-Volume icon, and drag it onto your visible taskbar to keep it pinned permanently.
+#### 2. 🔊 8-Voice Polyphonic Sound Engine
+- Rapid keypresses and spamming now overlap into a clean, ratcheted mechanical purr rather than cutting out, muting into silence, or buffering.
+- Zero audio cut-outs and zero buffer lag (all sound stops within 45ms of releasing the key).
 
-#### 3. ⌨️ Universal Keyboard & Macro UI Enhancements
-- Safe named mutex initialization allowing CLI `--settings` inspection and smooth background execution.
-- Updated documentation and README with comprehensive controls, troubleshooting, and configuration guides.
+#### 3. 🪟 Windows 11 Taskbar Tray Integration
+- Interactive desktop binding ensures the tray icon registers cleanly with the Windows 11 Explorer shell.
+- High-contrast mint logo with glowing active status badge.
+
+#### 4. ⌨️ Universal Keyboard & Macro Support
+- Works with all keyboards (full-size, Everest 60 modular, TKL, 60%, 65%, 75%, and laptops).
+- Rebindable macros with interactive key combination recorder.
 
 ---
 
 ### 📦 Downloads
-- **`OpenVolume-v1.2.1-windows-x64.zip`**: Complete portable bundle (includes executable, custom assets, `config.json`, background runner, and utility scripts).
-- **`MountainEverest60-NumpadAudio-v1.2.1-windows-x64.zip`**: Mirror package under original project naming.
+- **`OpenVolume-v1.3.0-windows-x64.zip`**: Complete portable bundle (includes executable, custom assets, `config.json`, background runner, and startup scripts).
+- **`MountainEverest60-NumpadAudio-v1.3.0-windows-x64.zip`**: Mirror package under original project naming.
 - **`MountainEverestNumpad_Standalone.exe`**: Single-file portable executable.
 """
 
     release_payload = {
         "tag_name": tag,
         "target_commitish": "main",
-        "name": "Open-Volume & Numpad Audio Layer v1.2.1",
+        "name": "Open-Volume & Numpad Audio Layer v1.3.0",
         "body": body_md,
         "draft": False,
         "prerelease": False
@@ -101,8 +106,8 @@ A hotfix and enhancement update adding **8-voice polyphonic sound playback** (pr
 
     # Assets to upload
     assets = [
-        ("dist/release/OpenVolume-v1.2.1-windows-x64.zip", "application/zip", "OpenVolume-v1.2.1-windows-x64.zip"),
-        ("dist/release/MountainEverest60-NumpadAudio-v1.2.1-windows-x64.zip", "application/zip", "MountainEverest60-NumpadAudio-v1.2.1-windows-x64.zip"),
+        ("dist/release/OpenVolume-v1.3.0-windows-x64.zip", "application/zip", "OpenVolume-v1.3.0-windows-x64.zip"),
+        ("dist/release/MountainEverest60-NumpadAudio-v1.3.0-windows-x64.zip", "application/zip", "MountainEverest60-NumpadAudio-v1.3.0-windows-x64.zip"),
         ("dist/MountainEverestNumpad_Standalone.exe", "application/octet-stream", "MountainEverestNumpad_Standalone.exe")
     ]
 

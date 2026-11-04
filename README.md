@@ -49,7 +49,7 @@ Compatible out-of-the-box with:
 ## 📦 Releases & Downloads
 
 Pre-built standalone releases for Windows 10 & 11 (64-bit) are available on [GitHub Releases](https://github.com/shamsghani/open-volume/releases):
-- **`OpenVolume-v1.2.1-windows-x64.zip`**: Complete portable bundle (includes executable, custom assets, `config.json`, background runner, and utility scripts).
+- **`OpenVolume-v1.3.0-windows-x64.zip`**: Complete portable bundle (includes executable, custom assets, `config.json`, background runner, and utility scripts).
 - **`MountainEverestNumpad_Standalone.exe`**: Single-file portable executable.
 
 ---
@@ -141,6 +141,14 @@ Double-click `run_background.vbs`:
 
 ### Option 3: Stop Background Instances
 Double-click `stop.bat` to gracefully shut down any running instances.
+
+### Option 4: Windows Startup on Boot
+To have Open-Volume launch automatically whenever you log into Windows:
+- **From Settings UI**: Check the **"Start with Windows on Boot"** box.
+- **From System Tray**: Right-click the tray icon and check **"Start with Windows"**.
+- **From 1-Click Scripts**:
+  - Run `install_startup.bat` to enable startup.
+  - Run `uninstall_startup.bat` to disable startup.
 
 ---
 

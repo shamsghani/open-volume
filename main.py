@@ -41,6 +41,7 @@ from config_manager import ConfigManager
 from audio_mixer import AudioMixer
 from overlay_ui import OverlayWidget
 from keyboard_hook import NumpadLayerHook
+from settings_ui import SettingsWindow
 
 def attach_to_default_desktop():
     """Ensures GUI window connects to WinSta0\\Default."""
@@ -89,6 +90,14 @@ class MacropadAudioApp:
             "on_select_index": self._dispatch_select_index
         }
         self.hook = NumpadLayerHook(self.config, callbacks)
+
+        # Settings & Macro UI
+        self.settings_win = SettingsWindow(
+            self.root,
+            self.config_mgr,
+            on_save_callback=self._on_settings_saved,
+            on_preview_callback=self._on_settings_preview
+        )
 
         # Tray Icon
         self.tray_icon = None
@@ -230,8 +239,9 @@ class MacropadAudioApp:
         )
 
         menu = pystray.Menu(
-            item(lambda text: "Numpad Audio Layer: " + ("ACTIVE" if self.hook.is_layer_active() else "READY"), None, enabled=False),
-            item("Toggle Layer 2 (Ctrl+NumLock)", self._tray_toggle_layer),
+            item(lambda text: "Open Volume: " + ("ACTIVE" if self.hook.is_layer_active() else "READY"), None, enabled=False),
+            item("Toggle HUD Layer", self._tray_toggle_layer),
+            item("Settings & Keybindings...", self._tray_open_settings),
             pystray.Menu.SEPARATOR,
             item("Widget Position", position_menu),
             item("Slide & Fade Animation", _toggle_anim, checked=_is_anim),
@@ -243,9 +253,35 @@ class MacropadAudioApp:
         self.tray_icon = pystray.Icon(
             "NumpadAudioLayer",
             self._create_tray_image(False),
-            "Numpad Audio Layer Controller",
+            "Open Volume - Audio Mixer & Macropad",
             menu=menu
         )
+
+    def _tray_open_settings(self, icon, item):
+        self.action_queue.put((self._show_settings, ()))
+
+    def _show_settings(self):
+        self.settings_win.show()
+
+    def _on_settings_saved(self, new_cfg):
+        print("[App] Settings updated and applied dynamically.")
+        self.config = new_cfg
+        self.hook.update_config(new_cfg)
+        app_cfg = new_cfg.get("appearance", {})
+        self.overlay.set_position(app_cfg.get("position", "bottom-right"))
+        self.overlay.animation_enabled = app_cfg.get("animation_enabled", True)
+        self.overlay.accent_color = app_cfg.get("accent_color", "#00E5A3")
+        self._update_tray_state()
+
+    def _on_settings_preview(self, preview_cfg):
+        print("[App] Triggering HUD preview from Settings...")
+        app_cfg = preview_cfg.get("appearance", {})
+        self.overlay.set_position(app_cfg.get("position", "bottom-right"))
+        self.overlay.animation_enabled = app_cfg.get("animation_enabled", True)
+        self.overlay.accent_color = app_cfg.get("accent_color", "#00E5A3")
+        self.mixer.refresh()
+        self.overlay.update_data(self.mixer.get_apps(), self.mixer.get_selected_index())
+        self.overlay.show(animate=True)
 
     def _change_position(self, new_pos: str):
         print(f"[App] Changing widget position to: {new_pos}")
@@ -318,6 +354,10 @@ class MacropadAudioApp:
         print("    [0 - 9]           : Jump Directly to App Index")
         print("    [NumLock] / [Esc] : Exit Layer 2")
         print("=" * 55 + "\n")
+
+        # Settings window CLI flag
+        if "--settings" in sys.argv:
+            self.root.after(200, self.settings_win.show)
 
         # Test popup flag check
         if "--test-popup" in sys.argv:

@@ -1,8 +1,11 @@
 import ctypes
 from ctypes import wintypes
+import os
+import sys
 import threading
 import time
 import winsound
+from sound_generator import ensure_sound_assets
 
 # Win32 Constants
 WH_KEYBOARD_LL = 13
@@ -96,6 +99,10 @@ class NumpadLayerHook:
         self.numlock_is_down = False
         self.multiply_is_down = False
 
+        # Pre-synthesize warm, round womp sounds
+        base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
+        self.sounds_dir = ensure_sound_assets(base_dir)
+
         # Strictly numpad keys that should be suppressed when layer is active
         # Notice: Main keyboard Enter, Main keyboard -/+, and arrow keys are NOT here!
         self.suppressed_vks = set([
@@ -118,6 +125,24 @@ class NumpadLayerHook:
             user32.UnhookWindowsHookEx(self.hook_handle)
             self.hook_handle = None
 
+    def update_config(self, new_config: dict):
+        """Updates hook settings and active custom bindings dynamically."""
+        self.config = new_config
+        self.sound_enabled = new_config.get("volume", {}).get("sound_feedback", True)
+
+    def _matches_binding(self, binding_dict: dict, vk: int, ctrl: bool, alt: bool, shift: bool, win: bool) -> bool:
+        if not binding_dict:
+            return False
+        b_vk = binding_dict.get("vk")
+        if b_vk != vk:
+            return False
+        return (
+            bool(binding_dict.get("ctrl", False)) == ctrl
+            and bool(binding_dict.get("alt", False)) == alt
+            and bool(binding_dict.get("shift", False)) == shift
+            and bool(binding_dict.get("win", False)) == win
+        )
+
     def is_layer_active(self) -> bool:
         return self.layer_active
 
@@ -126,23 +151,27 @@ class NumpadLayerHook:
             self.layer_active = active
             print(f"[Hook] Layer 2 state changed -> {'ACTIVE' if active else 'INACTIVE'}")
             if active:
-                self._play_sound(1400, 30)
+                self._play_sound("enter")
                 if "on_layer_enter" in self.callbacks:
                     self.callbacks["on_layer_enter"]()
             else:
-                self._play_sound(700, 30)
+                self._play_sound("exit")
                 if "on_layer_exit" in self.callbacks:
                     self.callbacks["on_layer_exit"]()
 
-    def _play_sound(self, freq: int, dur: int):
+    def _play_sound(self, sound_type: str = "cycle"):
+        """Plays smooth, non-blocking pre-synthesized womp audio feedback."""
         if not self.sound_enabled:
             return
-        def _beep():
+        sound_path = os.path.join(self.sounds_dir, f"womp_{sound_type}.wav")
+        if os.path.exists(sound_path):
             try:
-                winsound.Beep(freq, dur)
+                winsound.PlaySound(
+                    sound_path,
+                    winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT
+                )
             except Exception:
                 pass
-        threading.Thread(target=_beep, daemon=True).start()
 
     def _hook_loop(self):
         # Attach worker thread to Default desktop so hook receives system-wide events
@@ -200,8 +229,30 @@ class NumpadLayerHook:
                     or bool(user32.GetAsyncKeyState(VK_SHIFT) & 0x8000)
                 )
 
+                alt_is_active = (
+                    self.alt_down
+                    or bool(user32.GetAsyncKeyState(VK_MENU) & 0x8000)
+                )
+
+                win_is_active = (
+                    bool(user32.GetAsyncKeyState(0x5B) & 0x8000)
+                    or bool(user32.GetAsyncKeyState(0x5C) & 0x8000)
+                )
+
+                mode = self.config.get("mode", "hybrid")
+                custom_bindings = self.config.get("custom_bindings", {})
+
                 # --- 1. TOGGLE LAYER 2 CHECK ---
-                if is_keydown and (vk == VK_NUMLOCK or (ctrl_is_active and vk == VK_MULTIPLY)):
+                # Check custom toggle hotkey (e.g. Ctrl + Alt + V)
+                if is_keydown and mode in ("hybrid", "custom"):
+                    toggle_b = custom_bindings.get("toggle_layer", {})
+                    if self._matches_binding(toggle_b, vk, ctrl_is_active, alt_is_active, shift_is_active, win_is_active):
+                        print(f"[Hook] Trigger detected: Custom Toggle ({toggle_b.get('display', 'Hotkey')})")
+                        self.set_layer_active(not self.layer_active)
+                        return 1
+
+                # Check Numpad toggles (Ctrl + NumLock, Double-tap NumLock, Ctrl + Numpad *)
+                if mode in ("hybrid", "numpad") and is_keydown and (vk == VK_NUMLOCK or (ctrl_is_active and vk == VK_MULTIPLY)):
                     # Check for autorepeat debounce: ignore repeated down events while holding
                     if vk == VK_NUMLOCK:
                         if self.numlock_is_down:
@@ -256,11 +307,52 @@ class NumpadLayerHook:
                             self.set_layer_active(False)
                             return 1
 
+                        # --- Custom Macro Bindings (TKL / Laptop / Custom) ---
+                        if mode in ("hybrid", "custom"):
+                            if self._matches_binding(custom_bindings.get("volume_up"), vk, ctrl_is_active, alt_is_active, shift_is_active, win_is_active):
+                                step = self.config.get("volume", {}).get("fine_step_percent", 2) if shift_is_active \
+                                    else self.config.get("volume", {}).get("step_percent", 5)
+                                self._play_sound("up")
+                                if "on_volume_up" in self.callbacks:
+                                    self.callbacks["on_volume_up"](step)
+                                return 1
+
+                            if self._matches_binding(custom_bindings.get("volume_down"), vk, ctrl_is_active, alt_is_active, shift_is_active, win_is_active):
+                                step = self.config.get("volume", {}).get("fine_step_percent", 2) if shift_is_active \
+                                    else self.config.get("volume", {}).get("step_percent", 5)
+                                self._play_sound("down")
+                                if "on_volume_down" in self.callbacks:
+                                    self.callbacks["on_volume_down"](step)
+                                return 1
+
+                            if self._matches_binding(custom_bindings.get("next_app"), vk, ctrl_is_active, alt_is_active, shift_is_active, win_is_active):
+                                self._play_sound("cycle")
+                                if "on_select_next" in self.callbacks:
+                                    self.callbacks["on_select_next"]()
+                                return 1
+
+                            if self._matches_binding(custom_bindings.get("prev_app"), vk, ctrl_is_active, alt_is_active, shift_is_active, win_is_active):
+                                self._play_sound("cycle")
+                                if "on_select_prev" in self.callbacks:
+                                    self.callbacks["on_select_prev"]()
+                                return 1
+
+                            if self._matches_binding(custom_bindings.get("toggle_mute"), vk, ctrl_is_active, alt_is_active, shift_is_active, win_is_active):
+                                self._play_sound("mute")
+                                if "on_toggle_mute" in self.callbacks:
+                                    self.callbacks["on_toggle_mute"]()
+                                return 1
+
+                            if self._matches_binding(custom_bindings.get("exit_layer"), vk, ctrl_is_active, alt_is_active, shift_is_active, win_is_active):
+                                print("[Hook] Custom Exit -> Exiting Layer 2")
+                                self.set_layer_active(False)
+                                return 1
+
                         # Volume UP (+) on Numpad strictly (VK_ADD = 0x6B)
                         if vk == VK_ADD:
                             step = self.config.get("volume", {}).get("fine_step_percent", 2) if shift_is_active \
                                 else self.config.get("volume", {}).get("step_percent", 5)
-                            self._play_sound(1200, 20)
+                            self._play_sound("up")
                             if "on_volume_up" in self.callbacks:
                                 self.callbacks["on_volume_up"](step)
                             return 1
@@ -269,28 +361,28 @@ class NumpadLayerHook:
                         if vk == VK_SUBTRACT:
                             step = self.config.get("volume", {}).get("fine_step_percent", 2) if shift_is_active \
                                 else self.config.get("volume", {}).get("step_percent", 5)
-                            self._play_sound(900, 20)
+                            self._play_sound("down")
                             if "on_volume_down" in self.callbacks:
                                 self.callbacks["on_volume_down"](step)
                             return 1
 
                         # Cycle Previous App: 8 (Up), 4 (Left), Divide (/)
                         if vk in (VK_NUMPAD8, VK_NUMPAD4, VK_DIVIDE):
-                            self._play_sound(1050, 15)
+                            self._play_sound("cycle")
                             if "on_select_prev" in self.callbacks:
                                 self.callbacks["on_select_prev"]()
                             return 1
 
                         # Cycle Next App: 2 (Down), 6 (Right), Multiply (*)
                         if vk in (VK_NUMPAD2, VK_NUMPAD6, VK_MULTIPLY):
-                            self._play_sound(1050, 15)
+                            self._play_sound("cycle")
                             if "on_select_next" in self.callbacks:
                                 self.callbacks["on_select_next"]()
                             return 1
 
                         # Mute / Unmute: Numpad 5, or NUMPAD ENTER (VK_RETURN with is_extended == True)
                         if vk == VK_NUMPAD5 or (vk == VK_RETURN and is_extended):
-                            self._play_sound(600, 40)
+                            self._play_sound("mute")
                             if "on_toggle_mute" in self.callbacks:
                                 self.callbacks["on_toggle_mute"]()
                             return 1
@@ -298,7 +390,7 @@ class NumpadLayerHook:
                         # Direct App Jump: 0 through 9 on Numpad
                         if VK_NUMPAD0 <= vk <= VK_NUMPAD9:
                             app_index = vk - VK_NUMPAD0
-                            self._play_sound(1100, 15)
+                            self._play_sound("cycle")
                             if "on_select_index" in self.callbacks:
                                 self.callbacks["on_select_index"](app_index)
                             return 1

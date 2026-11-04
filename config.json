@@ -1,8 +1,67 @@
 {
+  "mode": "hybrid",
   "hotkey": {
     "ctrl_numlock": true,
     "double_tap_numlock": true,
     "double_tap_max_interval_ms": 400
+  },
+  "custom_bindings": {
+    "toggle_layer": {
+      "vk": 86,
+      "ctrl": true,
+      "alt": true,
+      "shift": false,
+      "win": false,
+      "display": "Ctrl + Alt + V"
+    },
+    "volume_up": {
+      "vk": 38,
+      "ctrl": false,
+      "alt": false,
+      "shift": false,
+      "win": false,
+      "display": "Up Arrow"
+    },
+    "volume_down": {
+      "vk": 40,
+      "ctrl": false,
+      "alt": false,
+      "shift": false,
+      "win": false,
+      "display": "Down Arrow"
+    },
+    "next_app": {
+      "vk": 39,
+      "ctrl": false,
+      "alt": false,
+      "shift": false,
+      "win": false,
+      "display": "Right Arrow"
+    },
+    "prev_app": {
+      "vk": 37,
+      "ctrl": false,
+      "alt": false,
+      "shift": false,
+      "win": false,
+      "display": "Left Arrow"
+    },
+    "toggle_mute": {
+      "vk": 77,
+      "ctrl": false,
+      "alt": false,
+      "shift": false,
+      "win": false,
+      "display": "M"
+    },
+    "exit_layer": {
+      "vk": 27,
+      "ctrl": false,
+      "alt": false,
+      "shift": false,
+      "win": false,
+      "display": "Escape"
+    }
   },
   "volume": {
     "step_percent": 5,

@@ -25,6 +25,7 @@ def build():
         "--icon", os.path.join("assets", "icon.ico"),
         "--add-data", f"{os.path.join('assets', 'icon.ico')};assets",
         "--add-data", f"{os.path.join('assets', 'icon.png')};assets",
+        "--add-data", f"{os.path.join('assets', 'sounds')};assets/sounds",
         "--add-data", f"config.json;.",
         "--hidden-import", "pystray._win32",
         "--hidden-import", "comtypes",
@@ -44,8 +45,9 @@ def build():
         print("[Error] PyInstaller build failed!")
         sys.exit(res.returncode)
 
-    # Copy config.json and README.md into the dist folder alongside the exe
+    # Copy assets, config.json, README.md, and scripts into dist folder
     dist_dir = os.path.join("dist", "MountainEverestNumpad")
+    shutil.copytree("assets", os.path.join(dist_dir, "assets"), dirs_exist_ok=True)
     shutil.copy("config.json", os.path.join(dist_dir, "config.json"))
     shutil.copy("README.md", os.path.join(dist_dir, "README.md"))
     shutil.copy("stop.bat", os.path.join(dist_dir, "stop.bat"))
@@ -61,6 +63,7 @@ def build():
         "--icon", os.path.join("assets", "icon.ico"),
         "--add-data", f"{os.path.join('assets', 'icon.ico')};assets",
         "--add-data", f"{os.path.join('assets', 'icon.png')};assets",
+        "--add-data", f"{os.path.join('assets', 'sounds')};assets/sounds",
         "--add-data", f"config.json;.",
         "--hidden-import", "pystray._win32",
         "--hidden-import", "comtypes",
@@ -80,7 +83,8 @@ def build():
     # 3. Create release ZIP bundle
     release_dir = os.path.join("dist", "release")
     os.makedirs(release_dir, exist_ok=True)
-    zip_path = os.path.join(release_dir, "MountainEverest60-NumpadAudio-v1.1.0-windows-x64.zip")
+    zip_path = os.path.join(release_dir, "OpenVolume-v1.2.0-windows-x64.zip")
+    compat_zip_path = os.path.join(release_dir, "MountainEverest60-NumpadAudio-v1.2.0-windows-x64.zip")
 
     print(f"\nPackaging release zip: {zip_path}...")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
@@ -94,6 +98,9 @@ def build():
         standalone_exe = os.path.join("dist", "MountainEverestNumpad_Standalone.exe")
         if os.path.exists(standalone_exe):
             zipf.write(standalone_exe, "MountainEverestNumpad_Standalone.exe")
+
+    # Duplicate to legacy name so both download links work
+    shutil.copy(zip_path, compat_zip_path)
 
     print("\n" + "=" * 60)
     print("  BUILD COMPLETE!")

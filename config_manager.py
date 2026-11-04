@@ -3,10 +3,41 @@ import os
 import sys
 
 DEFAULT_CONFIG = {
+    "mode": "hybrid",
     "hotkey": {
         "ctrl_numlock": True,
         "double_tap_numlock": True,
         "double_tap_max_interval_ms": 400
+    },
+    "custom_bindings": {
+        "toggle_layer": {
+            "vk": 0x56, "ctrl": True, "alt": True, "shift": False, "win": False,
+            "display": "Ctrl + Alt + V"
+        },
+        "volume_up": {
+            "vk": 0x26, "ctrl": False, "alt": False, "shift": False, "win": False,
+            "display": "Up Arrow"
+        },
+        "volume_down": {
+            "vk": 0x28, "ctrl": False, "alt": False, "shift": False, "win": False,
+            "display": "Down Arrow"
+        },
+        "next_app": {
+            "vk": 0x27, "ctrl": False, "alt": False, "shift": False, "win": False,
+            "display": "Right Arrow"
+        },
+        "prev_app": {
+            "vk": 0x25, "ctrl": False, "alt": False, "shift": False, "win": False,
+            "display": "Left Arrow"
+        },
+        "toggle_mute": {
+            "vk": 0x4D, "ctrl": False, "alt": False, "shift": False, "win": False,
+            "display": "M"
+        },
+        "exit_layer": {
+            "vk": 0x1B, "ctrl": False, "alt": False, "shift": False, "win": False,
+            "display": "Escape"
+        }
     },
     "volume": {
         "step_percent": 5,

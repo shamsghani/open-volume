@@ -73,7 +73,7 @@
     "cycle_wraparound": true
   },
   "appearance": {
-    "position": "bottom-right",
+    "position": "top-center",
     "animation_enabled": true,
     "animation_duration_ms": 180,
     "margin_x": 28,
@@ -88,4 +88,3 @@
     "text_secondary": "#8E90A6"
   }
 }
-

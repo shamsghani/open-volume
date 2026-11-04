@@ -37,13 +37,13 @@ class TestAudioMixer(unittest.TestCase):
         self.mixer.select_index(0)
         initial_vol = self.mixer.get_selected_app()['volume']
 
-        # Step +5%
-        new_vol = self.mixer.adjust_volume(+5)
-        expected = min(100, initial_vol + 5)
-        self.assertEqual(new_vol, expected, f"Volume up failed: got {new_vol}, expected {expected}")
+        # Test volume step adjustment safely without hitting 0% or 100% boundary
+        step = -5 if initial_vol >= 95 else +5
+        new_vol = self.mixer.adjust_volume(step)
+        self.assertEqual(new_vol, initial_vol + step, f"Volume step failed: got {new_vol}, expected {initial_vol + step}")
 
-        # Step -5% (restore)
-        restored = self.mixer.adjust_volume(-5)
+        # Restore original volume
+        restored = self.mixer.adjust_volume(-step)
         self.assertEqual(restored, initial_vol, f"Volume restore failed: got {restored}, expected {initial_vol}")
         print(f"  [PASS] Volume step adjustment verified: {initial_vol}% -> {new_vol}% -> {restored}%")
 

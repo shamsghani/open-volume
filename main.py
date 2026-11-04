@@ -205,9 +205,36 @@ class MacropadAudioApp:
         return img
 
     def _setup_tray(self):
+        def _is_pos(p):
+            return lambda item: self.config.get("appearance", {}).get("position", "bottom-right") == p
+
+        def _set_pos(p):
+            def _action(icon, item):
+                self.action_queue.put((self._change_position, (p,)))
+            return _action
+
+        def _is_anim(item):
+            return self.config.get("appearance", {}).get("animation_enabled", True)
+
+        def _toggle_anim(icon, item):
+            self.action_queue.put((self._toggle_animation, ()))
+
+        position_menu = pystray.Menu(
+            item("Top Left", _set_pos("top-left"), checked=_is_pos("top-left"), radio=True),
+            item("Top Center", _set_pos("top-center"), checked=_is_pos("top-center"), radio=True),
+            item("Top Right", _set_pos("top-right"), checked=_is_pos("top-right"), radio=True),
+            pystray.Menu.SEPARATOR,
+            item("Bottom Left", _set_pos("bottom-left"), checked=_is_pos("bottom-left"), radio=True),
+            item("Bottom Center", _set_pos("bottom-center"), checked=_is_pos("bottom-center"), radio=True),
+            item("Bottom Right", _set_pos("bottom-right"), checked=_is_pos("bottom-right"), radio=True)
+        )
+
         menu = pystray.Menu(
             item(lambda text: "Numpad Audio Layer: " + ("ACTIVE" if self.hook.is_layer_active() else "READY"), None, enabled=False),
             item("Toggle Layer 2 (Ctrl+NumLock)", self._tray_toggle_layer),
+            pystray.Menu.SEPARATOR,
+            item("Widget Position", position_menu),
+            item("Slide & Fade Animation", _toggle_anim, checked=_is_anim),
             item("Refresh Audio Sessions", self._tray_refresh_sessions),
             item("Open Config File", self._tray_open_config),
             pystray.Menu.SEPARATOR,
@@ -219,6 +246,29 @@ class MacropadAudioApp:
             "Numpad Audio Layer Controller",
             menu=menu
         )
+
+    def _change_position(self, new_pos: str):
+        print(f"[App] Changing widget position to: {new_pos}")
+        if "appearance" not in self.config:
+            self.config["appearance"] = {}
+        self.config["appearance"]["position"] = new_pos
+        self.config_mgr.save()
+        self.overlay.set_position(new_pos)
+
+        # Show brief preview with animation at the new spot
+        self.mixer.refresh()
+        self.overlay.update_data(self.mixer.get_apps(), self.mixer.get_selected_index())
+        self.overlay.show(animate=True)
+
+    def _toggle_animation(self):
+        curr = self.config.get("appearance", {}).get("animation_enabled", True)
+        new_val = not curr
+        print(f"[App] Toggling animation -> {'ENABLED' if new_val else 'DISABLED'}")
+        if "appearance" not in self.config:
+            self.config["appearance"] = {}
+        self.config["appearance"]["animation_enabled"] = new_val
+        self.config_mgr.save()
+        self.overlay.animation_enabled = new_val
 
     def _update_tray_state(self):
         if self.tray_icon:

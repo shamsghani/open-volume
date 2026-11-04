@@ -93,7 +93,7 @@ Double-click `stop.bat` to gracefully shut down any running instances.
 
 ## ⚙️ Configuration (`config.json`)
 
-You can edit `config.json` at any time to tweak behaviors, hotkeys, step sizes, and visual themes:
+You can edit `config.json` at any time to tweak behaviors, hotkeys, step sizes, and visual themes (or change widget position and animation directly from the System Tray menu):
 
 ```json
 {
@@ -113,6 +113,8 @@ You can edit `config.json` at any time to tweak behaviors, hotkeys, step sizes, 
   },
   "appearance": {
     "position": "bottom-right",
+    "animation_enabled": true,
+    "animation_duration_ms": 180,
     "margin_x": 28,
     "margin_y": 60,
     "width": 360,
@@ -126,6 +128,22 @@ You can edit `config.json` at any time to tweak behaviors, hotkeys, step sizes, 
   }
 }
 ```
+
+### 📍 Supported Widget Positions
+You can configure `"position"` in `config.json` or right-click the system tray icon:
+- **`"bottom-right"`** (Default above taskbar)
+- **`"bottom-center"`** / **`"bottom-mid"`**
+- **`"bottom-left"`**
+- **`"top-right"`**
+- **`"top-center"`** / **`"top-mid"`**
+- **`"top-left"`**
+- **`"center"`**
+
+### 🎬 Slide & Fade Animation
+- Smooth 60 FPS cubic ease-out slide-in & fade-in when activated.
+- Slides in smoothly from the nearest screen edge (e.g. rising from the bottom or dropping from the top).
+- Snappy cubic ease-in fade-out on dismissal.
+- Fully togglable via `"animation_enabled": true/false` or via the System Tray menu.
 
 ---
 

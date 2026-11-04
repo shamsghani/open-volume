@@ -20,7 +20,7 @@ def publish_release():
     token = get_token()
     owner = "shamsghani"
     repo = "open-volume"
-    tag = "v1.0.0"
+    tag = "v1.1.0"
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -29,26 +29,27 @@ def publish_release():
     }
 
     # Release body notes
-    body_md = """## 🎛️ Mountain Everest 60 - Numpad Audio Layer 2 (v1.0.0)
+    body_md = """## 🎛️ Mountain Everest 60 - Numpad Audio Layer 2 (v1.1.0)
 
-A lightweight, high-performance background utility that turns the **Mountain Everest 60 modular numpad** into a dedicated **Layer 2 Audio Mixer & Macropad**.
+A major update adding customizable HUD positioning and smooth slide-in / fade-in animations!
 
-### ✨ Highlights
-- **Layer 2 Toggle**: `Ctrl + NumLock`, `Double-tap NumLock`, or `Ctrl + Numpad *`.
-- **System-Wide Non-Activating HUD**: Always on top on your primary display; never steals focus from games or active apps.
-- **Per-Application Volume**: Cycle open audio apps with `8`/`2` (or `/`/`*`), and adjust volume smoothly with `+` and `-` (fine 2% steps with `Shift`).
-- **Instant Mute**: Press `Numpad Enter` or `5`. Normal keyboard Enter continues working untouched.
-- **Standalone Portable Package**: No Python installation required. Extract and run!
+### ✨ What's New in v1.1.0
+- **Configurable HUD Anchors**: Choose from 6 screen locations:
+  - `top-left`, `top-center` / `top-mid`, `top-right`
+  - `bottom-left`, `bottom-center` / `bottom-mid`, `bottom-right`
+- **Dynamic Tray Switching**: Switch widget location on the fly with live visual preview via **System Tray > Widget Position** without needing to edit config files.
+- **Fluent Slide-In & Fade-In Animation**: Smooth 60 FPS cubic ease-out animation sliding from the nearest screen edge. Fully customizable duration or togglable on the fly.
+- **Snappy Dismissal**: Smooth cubic ease-in fade-out on timeout or instant dismiss on key press.
 
 ### 📦 Downloads
-- **`MountainEverest60-NumpadAudio-v1.0.0-windows-x64.zip`**: Complete portable bundle (includes executable, customizable `config.json`, background launcher, and utility scripts).
+- **`MountainEverest60-NumpadAudio-v1.1.0-windows-x64.zip`**: Complete portable bundle (includes executable, customizable `config.json`, background launcher, and utility scripts).
 - **`MountainEverestNumpad_Standalone.exe`**: Single-file portable executable.
 """
 
     release_payload = {
         "tag_name": tag,
         "target_commitish": "main",
-        "name": "Mountain Everest 60 - Numpad Audio Layer v1.0.0",
+        "name": "Mountain Everest 60 - Numpad Audio Layer v1.1.0",
         "body": body_md,
         "draft": False,
         "prerelease": False
@@ -87,7 +88,7 @@ A lightweight, high-performance background utility that turns the **Mountain Eve
 
     # Assets to upload
     assets = [
-        ("dist/release/MountainEverest60-NumpadAudio-v1.0.0-windows-x64.zip", "application/zip", "MountainEverest60-NumpadAudio-v1.0.0-windows-x64.zip"),
+        ("dist/release/MountainEverest60-NumpadAudio-v1.1.0-windows-x64.zip", "application/zip", "MountainEverest60-NumpadAudio-v1.1.0-windows-x64.zip"),
         ("dist/MountainEverestNumpad_Standalone.exe", "application/octet-stream", "MountainEverestNumpad_Standalone.exe")
     ]
 

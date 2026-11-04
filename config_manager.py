@@ -19,6 +19,8 @@ DEFAULT_CONFIG = {
     },
     "appearance": {
         "position": "bottom-right",
+        "animation_enabled": True,
+        "animation_duration_ms": 180,
         "margin_x": 28,
         "margin_y": 60,
         "width": 360,

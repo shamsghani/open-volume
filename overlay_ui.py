@@ -43,9 +43,22 @@ class OverlayWidget:
         self.text_primary = app_cfg.get("text_primary", "#FFFFFF")
         self.text_secondary = app_cfg.get("text_secondary", "#8E90A6")
         self.width = app_cfg.get("width", 360)
-        self.margin_x = app_cfg.get("margin_x", 24)
-        self.margin_y = app_cfg.get("margin_y", 16)
+        self.margin_x = app_cfg.get("margin_x", 28)
+        self.margin_y = app_cfg.get("margin_y", 60)
         self.max_visible_apps = app_cfg.get("max_visible_apps", 6)
+
+        # Position and Animation settings
+        self.position = app_cfg.get("position", "bottom-right")
+        self.animation_enabled = app_cfg.get("animation_enabled", True)
+        self.animation_duration = app_cfg.get("animation_duration_ms", 180) / 1000.0
+        self.anim_in_progress = False
+        self.anim_token = 0
+
+        self.target_x = 0
+        self.target_y = 0
+        self.target_h = 120
+        self.slide_dx = 0
+        self.slide_dy = 0
 
         # Window setup
         self.win = tk.Toplevel(root)
@@ -106,26 +119,155 @@ class OverlayWidget:
         except Exception as e:
             print(f"[Overlay] Error setting no-activate style: {e}")
 
-    def _reposition(self, height: int):
-        # Position cleanly on the Primary Monitor above taskbar
+    def calculate_position(self, height: int):
+        """Calculates the target (x, y) coordinates and slide offsets based on configured anchor."""
         work_area = get_primary_work_area()
-        x = work_area.right - self.width - self.margin_x
-        y = work_area.bottom - height - self.margin_y
-        self.win.geometry(f"{self.width}x{height}+{x}+{y}")
+        work_w = work_area.right - work_area.left
+        work_h = work_area.bottom - work_area.top
+        pos = self.position.lower().replace("_", "-").strip()
 
-    def show(self):
+        # Horizontal alignment & slide delta
+        if "left" in pos:
+            x = work_area.left + self.margin_x
+            slide_dx = -24
+        elif "right" in pos:
+            x = work_area.right - self.width - self.margin_x
+            slide_dx = 24
+        else:  # center / mid
+            x = work_area.left + (work_w - self.width) // 2
+            slide_dx = 0
+
+        # Vertical alignment & slide delta
+        if "top" in pos:
+            y = work_area.top + self.margin_y
+            slide_dy = -24
+        elif "bottom" in pos:
+            y = work_area.bottom - height - self.margin_y
+            slide_dy = 24
+        else:  # center / mid
+            y = work_area.top + (work_h - height) // 2
+            slide_dy = 0
+
+        # If it's center on both axes, slide up gently
+        if slide_dx == 0 and slide_dy == 0:
+            slide_dy = 20
+
+        return x, y, slide_dx, slide_dy
+
+    def set_position(self, new_position: str):
+        """Updates the widget anchor position dynamically."""
+        self.position = new_position
+        if self.visible:
+            self.render()
+
+    def _reposition(self, height: int):
+        self.target_h = height
+        self.target_x, self.target_y, self.slide_dx, self.slide_dy = self.calculate_position(height)
+        if not self.anim_in_progress:
+            self.win.geometry(f"{self.width}x{height}+{self.target_x}+{self.target_y}")
+
+    def show(self, animate: bool = True):
         self.visible = True
         self.last_activity_time = time.time()
         self.render()
+
+        if not self.animation_enabled or not animate:
+            self.anim_in_progress = False
+            self.win.attributes("-alpha", 1.0)
+            self.win.geometry(f"{self.width}x{self.target_h}+{self.target_x}+{self.target_y}")
+            self.win.deiconify()
+            self.win.lift()
+            self.win.attributes("-topmost", True)
+            self._apply_no_activate_style()
+            self.win.update_idletasks()
+            return
+
+        # Start slide-in and fade-in animation
+        self.anim_token += 1
+        token = self.anim_token
+        self.anim_in_progress = True
+
+        start_x = self.target_x + self.slide_dx
+        start_y = self.target_y + self.slide_dy
+        self.win.attributes("-alpha", 0.05)
+        self.win.geometry(f"{self.width}x{self.target_h}+{start_x}+{start_y}")
         self.win.deiconify()
         self.win.lift()
         self.win.attributes("-topmost", True)
         self._apply_no_activate_style()
         self.win.update_idletasks()
 
-    def hide(self):
+        start_time = time.time()
+        self._step_animate_in(token, start_time)
+
+    def _step_animate_in(self, token: int, start_time: float):
+        if token != self.anim_token or not self.visible:
+            return
+
+        elapsed = time.time() - start_time
+        t = min(1.0, elapsed / max(0.01, self.animation_duration))
+        # Cubic ease-out
+        ease = 1.0 - (1.0 - t) ** 3
+
+        cur_x = int(self.target_x + self.slide_dx * (1.0 - ease))
+        cur_y = int(self.target_y + self.slide_dy * (1.0 - ease))
+        cur_alpha = min(1.0, 0.05 + 0.95 * ease)
+
+        self.win.geometry(f"{self.width}x{self.target_h}+{cur_x}+{cur_y}")
+        self.win.attributes("-alpha", cur_alpha)
+        self.win.update_idletasks()
+
+        if t < 1.0:
+            self.root.after(16, lambda: self._step_animate_in(token, start_time))
+        else:
+            self.anim_in_progress = False
+            self.win.geometry(f"{self.width}x{self.target_h}+{self.target_x}+{self.target_y}")
+            self.win.attributes("-alpha", 1.0)
+
+    def hide(self, animate: bool = True):
+        if not self.visible:
+            return
+
         self.visible = False
-        self.win.withdraw()
+
+        if not self.animation_enabled or not animate:
+            self.anim_token += 1
+            self.anim_in_progress = False
+            self.win.withdraw()
+            return
+
+        # Start slide-out and fade-out animation
+        self.anim_token += 1
+        token = self.anim_token
+        self.anim_in_progress = True
+
+        start_time = time.time()
+        fade_duration = min(0.12, self.animation_duration * 0.7)
+        self._step_animate_out(token, start_time, fade_duration)
+
+    def _step_animate_out(self, token: int, start_time: float, duration: float):
+        if token != self.anim_token:
+            return
+
+        elapsed = time.time() - start_time
+        t = min(1.0, elapsed / max(0.01, duration))
+        # Cubic ease-in
+        ease = t ** 3
+
+        cur_x = int(self.target_x + self.slide_dx * ease)
+        cur_y = int(self.target_y + self.slide_dy * ease)
+        cur_alpha = max(0.0, 1.0 - ease)
+
+        self.win.geometry(f"{self.width}x{self.target_h}+{cur_x}+{cur_y}")
+        self.win.attributes("-alpha", cur_alpha)
+        self.win.update_idletasks()
+
+        if t < 1.0:
+            self.root.after(16, lambda: self._step_animate_out(token, start_time, duration))
+        else:
+            self.anim_in_progress = False
+            self.visible = False
+            self.win.withdraw()
 
     def is_visible(self) -> bool:
         return self.visible

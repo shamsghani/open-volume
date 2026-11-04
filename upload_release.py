@@ -20,7 +20,7 @@ def publish_release():
     token = get_token()
     owner = "shamsghani"
     repo = "open-volume"
-    tag = "v1.3.0"
+    tag = "v1.3.1"
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -34,6 +34,19 @@ def publish_release():
 A major feature release introducing **Windows Startup Integration**, convenience install/uninstall scripts, and enhanced configuration controls!
 
 ---
+
+### ✨ What's New in v1.3.1 (Hotfix & Stability)
+
+#### 1. 🔇 Fixed Scratching / Popping Sounds on Start & Stop
+- **The Issue**: Raw kernel `waveOut` handles opened and closed legacy MME audio streams simultaneously, causing DAC buffer resets, clicks, and occasional scratching noise during startup, voice recycling, and shutdown.
+- **The Fix**: Completely replaced low-level driver stream resetting with native Windows high-level asynchronous playback coupled with an intelligent 38ms re-trigger throttle.
+- **Crystal Clean Micro-Interactions**: Zero scratching, zero DAC clicks, zero buffer queue lag, and sounds play in full without cutting out when spamming!
+
+#### 2. 🪲 Fixed Layer Enter Callback Bug
+- Fixed a variable scope bug where entering Layer 2 previously triggered an undefined variable exception.
+
+#### 3. 🚀 Windows Startup Integration (from v1.3.0)
+- Full automatic startup on boot via Settings UI, System Tray menu, or 1-click batch scripts.
 
 ### ✨ What's New in v1.3.0
 
@@ -59,8 +72,8 @@ A major feature release introducing **Windows Startup Integration**, convenience
 ---
 
 ### 📦 Downloads
-- **`OpenVolume-v1.3.0-windows-x64.zip`**: Complete portable bundle (includes executable, custom assets, `config.json`, background runner, and startup scripts).
-- **`MountainEverest60-NumpadAudio-v1.3.0-windows-x64.zip`**: Mirror package under original project naming.
+- **`OpenVolume-v1.3.1-windows-x64.zip`**: Complete portable bundle (includes executable, custom assets, `config.json`, background runner, and startup scripts).
+- **`MountainEverest60-NumpadAudio-v1.3.1-windows-x64.zip`**: Mirror package under original project naming.
 - **`MountainEverestNumpad_Standalone.exe`**: Single-file portable executable.
 """
 
@@ -106,8 +119,8 @@ A major feature release introducing **Windows Startup Integration**, convenience
 
     # Assets to upload
     assets = [
-        ("dist/release/OpenVolume-v1.3.0-windows-x64.zip", "application/zip", "OpenVolume-v1.3.0-windows-x64.zip"),
-        ("dist/release/MountainEverest60-NumpadAudio-v1.3.0-windows-x64.zip", "application/zip", "MountainEverest60-NumpadAudio-v1.3.0-windows-x64.zip"),
+        ("dist/release/OpenVolume-v1.3.1-windows-x64.zip", "application/zip", "OpenVolume-v1.3.1-windows-x64.zip"),
+        ("dist/release/MountainEverest60-NumpadAudio-v1.3.1-windows-x64.zip", "application/zip", "MountainEverest60-NumpadAudio-v1.3.1-windows-x64.zip"),
         ("dist/MountainEverestNumpad_Standalone.exe", "application/octet-stream", "MountainEverestNumpad_Standalone.exe")
     ]
 

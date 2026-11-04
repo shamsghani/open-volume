@@ -102,7 +102,7 @@ class NumpadLayerHook:
         # Pre-synthesize warm, round womp sounds and initialize 8-voice polyphonic engine
         base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
         self.sounds_dir = ensure_sound_assets(base_dir)
-        self.sound_engine = SoundEngine(self.sounds_dir, num_voices=8)
+        self.sound_engine = SoundEngine(self.sounds_dir)
 
         # Strictly numpad keys that should be suppressed when layer is active
         # Notice: Main keyboard Enter, Main keyboard -/+, and arrow keys are NOT here!

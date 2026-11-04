@@ -133,8 +133,6 @@ class MacropadAudioApp:
         self.overlay.update_data(self.mixer.get_apps(), self.mixer.get_selected_index())
         self.overlay.show()
         self._update_tray_state()
-        import startup_manager
-        startup_manager.sync_with_config(new_cfg)
 
     def _dispatch_layer_exit(self):
         self.action_queue.put((self._handle_layer_exit, ()))

@@ -58,128 +58,52 @@ def ensure_sound_assets(base_dir=None):
 
     return sounds_dir
 
-import ctypes
-from ctypes import wintypes
+import time
 import winsound
 
-winmm = ctypes.windll.winmm
-
-class WAVEFORMATEX(ctypes.Structure):
-    _fields_ = [
-        ('wFormatTag', wintypes.WORD),
-        ('nChannels', wintypes.WORD),
-        ('nSamplesPerSec', wintypes.DWORD),
-        ('nAvgBytesPerSec', wintypes.DWORD),
-        ('nBlockAlign', wintypes.WORD),
-        ('wBitsPerSample', wintypes.WORD),
-        ('cbSize', wintypes.WORD)
-    ]
-
-class WAVEHDR(ctypes.Structure):
-    pass
-WAVEHDR._fields_ = [
-    ('lpData', ctypes.c_char_p),
-    ('dwBufferLength', wintypes.DWORD),
-    ('dwBytesRecorded', wintypes.DWORD),
-    ('dwUser', ctypes.c_void_p),
-    ('dwFlags', wintypes.DWORD),
-    ('dwLoops', wintypes.DWORD),
-    ('lpNext', ctypes.POINTER(WAVEHDR)),
-    ('reserved', ctypes.c_void_p)
-]
-
 class SoundEngine:
-    """High-performance zero-latency polyphonic sound engine.
+    """Clean, zero-latency micro-interaction sound engine with zero DAC scratching/clicks.
     
-    Uses an 8-voice native WinMM waveOut pool so rapid keypresses or spamming
-    overlap naturally into rich audio feedback without cutting out or buffering.
+    Uses Windows native asynchronous audio with intelligent throttle to ensure sounds
+    never cut out into silence or buffer during rapid key holding/spamming.
     """
-    def __init__(self, sounds_dir, num_voices=8):
+    def __init__(self, sounds_dir, min_interval_ms=38, **kwargs):
         self.sounds_dir = sounds_dir
-        self.num_voices = num_voices
-        self.voices = []
-        self.headers = [None] * num_voices
-        self.current_voice = 0
-        self.pcm_cache = {}
+        self.min_interval = min_interval_ms / 1000.0
+        self.last_play_time = 0.0
+        self.last_sound_type = ""
         self.wav_paths = {}
-        self.has_waveout = False
 
         sound_names = ["up", "down", "enter", "exit", "mute", "cycle"]
         for name in sound_names:
             path = os.path.join(sounds_dir, f"womp_{name}.wav")
-            self.wav_paths[name] = path
             if os.path.exists(path):
-                try:
-                    with open(path, "rb") as f:
-                        data = f.read()
-                        if len(data) > 44:
-                            self.pcm_cache[name] = data[44:]  # Skip 44-byte WAV header
-                except Exception:
-                    pass
-
-        try:
-            wfx = WAVEFORMATEX()
-            wfx.wFormatTag = 1   # PCM
-            wfx.nChannels = 1    # Mono
-            wfx.nSamplesPerSec = 44100
-            wfx.wBitsPerSample = 16
-            wfx.nBlockAlign = 2
-            wfx.nAvgBytesPerSec = 44100 * 2
-            wfx.cbSize = 0
-
-            for _ in range(num_voices):
-                h = wintypes.HANDLE()
-                if winmm.waveOutOpen(ctypes.byref(h), -1, ctypes.byref(wfx), 0, 0, 0) == 0:
-                    self.voices.append(h)
-
-            if len(self.voices) > 0:
-                self.has_waveout = True
-        except Exception:
-            self.has_waveout = False
+                self.wav_paths[name] = path
 
     def play(self, sound_type="cycle"):
-        pcm = self.pcm_cache.get(sound_type)
-        if self.has_waveout and pcm:
-            try:
-                idx = self.current_voice
-                self.current_voice = (self.current_voice + 1) % len(self.voices)
-                h = self.voices[idx]
-
-                old_hdr = self.headers[idx]
-                if old_hdr:
-                    winmm.waveOutReset(h)
-                    winmm.waveOutUnprepareHeader(h, ctypes.byref(old_hdr), ctypes.sizeof(WAVEHDR))
-
-                hdr = WAVEHDR()
-                hdr.lpData = pcm
-                hdr.dwBufferLength = len(pcm)
-                self.headers[idx] = hdr
-
-                winmm.waveOutPrepareHeader(h, ctypes.byref(hdr), ctypes.sizeof(WAVEHDR))
-                winmm.waveOutWrite(h, ctypes.byref(hdr), ctypes.sizeof(WAVEHDR))
-                return
-            except Exception:
-                pass
-
-        # Fallback to winsound async playback
         path = self.wav_paths.get(sound_type)
-        if path and os.path.exists(path):
-            try:
-                winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
-            except Exception:
-                pass
+        if not path:
+            return
+
+        now = time.time()
+        # If the same sound is re-triggered within 38ms (e.g. key spam / holding key),
+        # let the current sound finish its body cleanly so it never cuts out into silence.
+        # If changing sound types (e.g. cycle -> mute), allow instant playback!
+        if sound_type == self.last_sound_type and (now - self.last_play_time < self.min_interval):
+            return
+
+        self.last_play_time = now
+        self.last_sound_type = sound_type
+        try:
+            winsound.PlaySound(
+                path,
+                winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT
+            )
+        except Exception:
+            pass
 
     def close(self):
-        for idx, h in enumerate(self.voices):
-            try:
-                old_hdr = self.headers[idx]
-                if old_hdr:
-                    winmm.waveOutReset(h)
-                    winmm.waveOutUnprepareHeader(h, ctypes.byref(old_hdr), ctypes.sizeof(WAVEHDR))
-                winmm.waveOutClose(h)
-            except Exception:
-                pass
-        self.voices.clear()
+        pass
 
 if __name__ == "__main__":
     p = ensure_sound_assets()

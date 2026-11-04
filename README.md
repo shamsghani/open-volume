@@ -49,7 +49,7 @@ Compatible out-of-the-box with:
 ## 📦 Releases & Downloads
 
 Pre-built standalone releases for Windows 10 & 11 (64-bit) are available on [GitHub Releases](https://github.com/shamsghani/open-volume/releases):
-- **`OpenVolume-v1.3.0-windows-x64.zip`**: Complete portable bundle (includes executable, custom assets, `config.json`, background runner, and utility scripts).
+- **`OpenVolume-v1.3.1-windows-x64.zip`**: Complete portable bundle (includes executable, custom assets, `config.json`, background runner, and utility scripts).
 - **`MountainEverestNumpad_Standalone.exe`**: Single-file portable executable.
 
 ---

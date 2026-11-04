@@ -83,8 +83,8 @@ def build():
     # 3. Create release ZIP bundle
     release_dir = os.path.join("dist", "release")
     os.makedirs(release_dir, exist_ok=True)
-    zip_path = os.path.join(release_dir, "OpenVolume-v1.2.0-windows-x64.zip")
-    compat_zip_path = os.path.join(release_dir, "MountainEverest60-NumpadAudio-v1.2.0-windows-x64.zip")
+    zip_path = os.path.join(release_dir, "OpenVolume-v1.2.1-windows-x64.zip")
+    compat_zip_path = os.path.join(release_dir, "MountainEverest60-NumpadAudio-v1.2.1-windows-x64.zip")
 
     print(f"\nPackaging release zip: {zip_path}...")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:

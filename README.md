@@ -25,8 +25,9 @@ Compatible out-of-the-box with:
   - `0` – `9`: Instantly jump directly to that app index in the list.
 - **Mute / Unmute**:
   - `5`, `M`, or `Numpad Enter`: Toggle mute for the currently selected application.
-- **Warm "Bump Womp" Micro-Interactions**:
+- **Warm "Bump Womp" Micro-Interactions (Polyphonic Sound Engine)**:
   - Rich, smooth pre-synthesized audio feedback with zero latency or buffering.
+  - Powered by an 8-voice native WinMM `waveOut` polyphony pool so that rapid spamming and key holding overlap naturally into a clean, ratcheted mechanical purr rather than cutting out or going silent.
 - **Settings & Macro Keybinding UI**:
   - Visual dark-themed configuration dashboard with interactive key combination recorder, screen anchor selector, accent color picker, and live HUD preview.
 - **System-Wide Non-Activating HUD Overlay**:
@@ -41,7 +42,15 @@ Compatible out-of-the-box with:
   - Auto-hides after 6 seconds of inactivity (customizable in `config.json` or Settings).
 - **System Tray Integration**:
   - Runs unobtrusively in the Windows taskbar system tray with a dynamic status icon and quick right-click menu.
-  - *Tip for Windows 11*: By default, Windows places new tray icons inside the taskbar overflow chevron (`^`). Drag it onto the taskbar to keep it permanently visible.
+  - **Windows 11 Tray Icon Location**: By default, Windows 11 automatically places new tray icons inside the taskbar overflow menu (`^` chevron next to the clock). Click the `^` chevron, find the cyan Open-Volume speaker icon, and drag it down directly onto your visible taskbar to keep it permanently pinned!
+
+---
+
+## 📦 Releases & Downloads
+
+Pre-built standalone releases for Windows 10 & 11 (64-bit) are available on [GitHub Releases](https://github.com/shamsghani/open-volume/releases):
+- **`OpenVolume-v1.2.1-windows-x64.zip`**: Complete portable bundle (includes executable, custom assets, `config.json`, background runner, and utility scripts).
+- **`MountainEverestNumpad_Standalone.exe`**: Single-file portable executable.
 
 ---
 

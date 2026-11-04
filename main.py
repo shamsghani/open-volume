@@ -6,11 +6,14 @@ import os
 MUTEX_NAME = "Local\\MountainEverest60_NumpadAudioLayer_SingleInstance"
 kernel32 = ctypes.windll.kernel32
 user32 = ctypes.windll.user32
+h_mutex = None
 
-h_mutex = kernel32.CreateMutexW(None, False, MUTEX_NAME)
-if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
-    print("[App] Another instance is already running! Exiting duplicate process.")
-    sys.exit(0)
+def check_single_instance():
+    global h_mutex
+    h_mutex = kernel32.CreateMutexW(None, False, MUTEX_NAME)
+    if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+        print("[App] Another instance is already running! Exiting duplicate process.")
+        sys.exit(0)
 
 # 1. Attach to interactive desktop FIRST before any GUI libraries load
 try:
@@ -198,19 +201,33 @@ class MacropadAudioApp:
     # --- System Tray Setup ---
 
     def _create_tray_image(self, active=False):
+        # 1. Try loading vibrant assets/icon.png
+        base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
+        icon_path = os.path.join(base_dir, "assets", "icon.png")
+        if os.path.exists(icon_path):
+            try:
+                base = Image.open(icon_path).convert("RGBA").resize((64, 64), Image.Resampling.LANCZOS)
+                if active:
+                    draw = ImageDraw.Draw(base)
+                    accent = self.config.get("appearance", {}).get("accent_color", "#00E5A3")
+                    # Vibrant active indicator badge
+                    draw.ellipse((42, 42, 60, 60), fill=accent, outline="#FFFFFF", width=2)
+                return base
+            except Exception:
+                pass
+
+        # 2. Crisp, high-contrast fallback drawn icon (clean on both dark & light taskbars)
         img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
-        border_col = self.config.get("appearance", {}).get("accent_color", "#00E5A3") if active else "#8E90A6"
+        accent_col = self.config.get("appearance", {}).get("accent_color", "#00E5A3")
+        color = accent_col if active else "#E0E0E0"
         fill_col = "#242838" if active else "#1A1B24"
 
-        # Rounded circle background
-        draw.ellipse((4, 4, 60, 60), fill=fill_col, outline=border_col, width=4)
-
-        # Speaker symbol
-        draw.rectangle((18, 24, 28, 40), fill=border_col)
-        draw.polygon([(28, 24), (42, 14), (42, 50), (28, 40)], fill=border_col)
+        draw.ellipse((4, 4, 60, 60), fill=fill_col, outline=color, width=3)
+        draw.rectangle((16, 24, 26, 40), fill=color)
+        draw.polygon([(26, 24), (40, 14), (40, 50), (26, 40)], fill=color)
         if active:
-            draw.arc((40, 20, 56, 44), start=-60, end=60, fill=border_col, width=3)
+            draw.arc((38, 20, 56, 44), start=-60, end=60, fill=color, width=3)
         return img
 
     def _setup_tray(self):
@@ -308,8 +325,12 @@ class MacropadAudioApp:
 
     def _update_tray_state(self):
         if self.tray_icon:
-            is_active = self.hook.is_layer_active()
-            self.tray_icon.icon = self._create_tray_image(is_active)
+            try:
+                attach_to_default_desktop()
+                is_active = self.hook.is_layer_active()
+                self.tray_icon.icon = self._create_tray_image(is_active)
+            except Exception as e:
+                print(f"[Tray] Error updating icon state: {e}")
 
     def _tray_toggle_layer(self, icon, item):
         new_state = not self.hook.is_layer_active()
@@ -332,10 +353,18 @@ class MacropadAudioApp:
         # Start keyboard hook
         self.hook.start()
 
-        # Start tray icon thread
+        # Start tray icon thread with explicit Default desktop setup callback
+        def _tray_setup(icon):
+            attach_to_default_desktop()
+            icon.visible = True
+            print("[Tray] Icon registered and visible on Default desktop.")
+
         def _run_tray():
             attach_to_default_desktop()
-            self.tray_icon.run()
+            try:
+                self.tray_icon.run(setup=_tray_setup)
+            except Exception as e:
+                print(f"[Tray] Tray icon loop error: {e}")
 
         tray_thread = threading.Thread(target=_run_tray, daemon=True)
         tray_thread.start()
@@ -378,5 +407,6 @@ class MacropadAudioApp:
                 self.tray_icon.stop()
 
 if __name__ == "__main__":
+    check_single_instance()
     app = MacropadAudioApp()
     app.run()

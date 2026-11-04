@@ -20,7 +20,7 @@ def publish_release():
     token = get_token()
     owner = "shamsghani"
     repo = "open-volume"
-    tag = "v1.2.0"
+    tag = "v1.2.1"
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -29,46 +29,40 @@ def publish_release():
     }
 
     # Release body notes
-    body_md = """## 🎛️ Open-Volume / Numpad Audio Layer (v1.2.0)
+    body_md = """## 🎛️ Open-Volume / Numpad Audio Layer (v1.2.1)
 
-A universal release introducing support for **all keyboards & laptops**, a dedicated **Settings & Macro Keybinding UI**, and smooth **warm audio micro-interactions**!
+A hotfix and enhancement update adding **8-voice polyphonic sound playback** (preventing audio cut-outs during rapid spamming) and **Windows 11 system tray fixes**.
 
 ---
 
-### ✨ What's New in v1.2.0
+### ✨ What's New in v1.2.1
 
-#### 1. ⌨️ Universal Keyboard & Laptop Support (Hybrid Mode)
-- Works out of the box with **any keyboard**: standard full-size numpads, modular numpads (Mountain Everest 60), tenkeyless (TKL), 60%, 65%, 75%, and compact laptops.
-- Default **Hybrid Mode** keeps full numpad interception active while simultaneously listening for custom macros (e.g. `Ctrl + Alt + V`, `Up`/`Down`, `Left`/`Right`, `M`, `Esc`).
+#### 1. 🔊 8-Voice Native Polyphonic Audio Engine
+- **No More Disappearing Sounds on Rapid Spam**: When spamming or holding `+` / `-`, each keystroke now triggers an independent voice in an 8-voice native WinMM `waveOut` audio pool.
+- Keypresses overlap naturally into a clean, ratcheted mechanical purr rather than cutting out, muting into silence, or buffering.
+- **Zero Buffer Lag**: Because each audio burst is only 45ms and rendered polyphonically, sound ends within 45ms of releasing the key.
 
-#### 2. 🎚️ Dedicated Settings & Keybindings UI
-- Visual dark-themed configuration dashboard accessible via:
-  - **System Tray Icon (Right-click) > Settings & Keybindings...**
-  - CLI flag: `python main.py --settings` or `MountainEverestNumpad.exe --settings`
-- **Interactive Key Combination Recorder**: Click "Record", press any key combination (modifiers + virtual key), and your macro is immediately configured.
-- **3x3 Screen Anchor Selector**: One-click visual layout grid to position the HUD across 6 screen anchors (`top-left/mid/right`, `bottom-left/mid/right`).
-- **Live Theme & Animation Tuning**: Accent color picker with instant HUD preview, animation speed control, and fine-tuning sliders.
+#### 2. 🪟 Windows 11 System Tray Fixes
+- **Interactive Desktop Binding**: Fixed an issue where the tray icon creation thread failed to register with the interactive Explorer shell on Windows 11.
+- **High-Contrast Cyan Icon**: Updated the tray graphic to use the high-visibility mint/cyan logo with an active status badge, ensuring maximum visibility on dark and light Windows 11 taskbars.
+- **Taskbar Pinned Guidance**: By default, Windows 11 places new tray icons inside the taskbar overflow menu (`^` chevron). Click the `^` chevron, grab the cyan Open-Volume icon, and drag it onto your visible taskbar to keep it pinned permanently.
 
-#### 3. 🔊 Warm "Bump Womp" Micro-Interactions (Zero Latency)
-- Replaced the harsh, single-thread PC-speaker beep with warm, rich synthesized micro-interaction sounds (`womp_enter`, `womp_exit`, `womp_up`, `womp_down`, `womp_cycle`, `womp_mute`).
-- **Zero Buffer Lag**: Powered by asynchronous Win32 audio streaming (`SND_ASYNC`), rapid keypresses never queue or lag.
-
-#### 4. 🪟 Windows 11 Taskbar Tray Integration
-- Seamless background operation with status tray icon.
-- *Tip for Windows 11*: New icons may initially appear inside the taskbar overflow chevron (`^`). Simply drag it onto your main taskbar to keep it pinned.
+#### 3. ⌨️ Universal Keyboard & Macro UI Enhancements
+- Safe named mutex initialization allowing CLI `--settings` inspection and smooth background execution.
+- Updated documentation and README with comprehensive controls, troubleshooting, and configuration guides.
 
 ---
 
 ### 📦 Downloads
-- **`OpenVolume-v1.2.0-windows-x64.zip`**: Complete portable bundle (includes executable, custom assets, `config.json`, background runner, and utility scripts).
-- **`MountainEverest60-NumpadAudio-v1.2.0-windows-x64.zip`**: Mirror package under original project naming.
+- **`OpenVolume-v1.2.1-windows-x64.zip`**: Complete portable bundle (includes executable, custom assets, `config.json`, background runner, and utility scripts).
+- **`MountainEverest60-NumpadAudio-v1.2.1-windows-x64.zip`**: Mirror package under original project naming.
 - **`MountainEverestNumpad_Standalone.exe`**: Single-file portable executable.
 """
 
     release_payload = {
         "tag_name": tag,
         "target_commitish": "main",
-        "name": "Open-Volume & Numpad Audio Layer v1.2.0",
+        "name": "Open-Volume & Numpad Audio Layer v1.2.1",
         "body": body_md,
         "draft": False,
         "prerelease": False
@@ -107,8 +101,8 @@ A universal release introducing support for **all keyboards & laptops**, a dedic
 
     # Assets to upload
     assets = [
-        ("dist/release/OpenVolume-v1.2.0-windows-x64.zip", "application/zip", "OpenVolume-v1.2.0-windows-x64.zip"),
-        ("dist/release/MountainEverest60-NumpadAudio-v1.2.0-windows-x64.zip", "application/zip", "MountainEverest60-NumpadAudio-v1.2.0-windows-x64.zip"),
+        ("dist/release/OpenVolume-v1.2.1-windows-x64.zip", "application/zip", "OpenVolume-v1.2.1-windows-x64.zip"),
+        ("dist/release/MountainEverest60-NumpadAudio-v1.2.1-windows-x64.zip", "application/zip", "MountainEverest60-NumpadAudio-v1.2.1-windows-x64.zip"),
         ("dist/MountainEverestNumpad_Standalone.exe", "application/octet-stream", "MountainEverestNumpad_Standalone.exe")
     ]
 

@@ -5,7 +5,7 @@ import sys
 import threading
 import time
 import winsound
-from sound_generator import ensure_sound_assets
+from sound_generator import ensure_sound_assets, SoundEngine
 
 # Win32 Constants
 WH_KEYBOARD_LL = 13
@@ -99,9 +99,10 @@ class NumpadLayerHook:
         self.numlock_is_down = False
         self.multiply_is_down = False
 
-        # Pre-synthesize warm, round womp sounds
+        # Pre-synthesize warm, round womp sounds and initialize 8-voice polyphonic engine
         base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
         self.sounds_dir = ensure_sound_assets(base_dir)
+        self.sound_engine = SoundEngine(self.sounds_dir, num_voices=8)
 
         # Strictly numpad keys that should be suppressed when layer is active
         # Notice: Main keyboard Enter, Main keyboard -/+, and arrow keys are NOT here!
@@ -119,6 +120,8 @@ class NumpadLayerHook:
 
     def stop(self):
         """Removes hook and stops message loop."""
+        if hasattr(self, "sound_engine"):
+            self.sound_engine.close()
         if self.thread_id:
             user32.PostThreadMessageW(self.thread_id, 0x0012, 0, 0)  # WM_QUIT
         if self.hook_handle:
@@ -160,18 +163,13 @@ class NumpadLayerHook:
                     self.callbacks["on_layer_exit"]()
 
     def _play_sound(self, sound_type: str = "cycle"):
-        """Plays smooth, non-blocking pre-synthesized womp audio feedback."""
+        """Plays smooth, polyphonic zero-latency audio feedback without cut-outs."""
         if not self.sound_enabled:
             return
-        sound_path = os.path.join(self.sounds_dir, f"womp_{sound_type}.wav")
-        if os.path.exists(sound_path):
-            try:
-                winsound.PlaySound(
-                    sound_path,
-                    winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT
-                )
-            except Exception:
-                pass
+        try:
+            self.sound_engine.play(sound_type)
+        except Exception:
+            pass
 
     def _hook_loop(self):
         # Attach worker thread to Default desktop so hook receives system-wide events

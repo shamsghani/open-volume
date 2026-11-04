@@ -123,7 +123,7 @@ class SettingsWindow:
         ).pack(side=tk.LEFT)
 
         tk.Label(
-            title_row, text=" v1.2.0 ", fg="#121318", bg=accent,
+            title_row, text=" v1.3.2 ", fg="#121318", bg=accent,
             font=("Segoe UI", 8, "bold"), padx=6, pady=2
         ).pack(side=tk.LEFT, padx=10)
 
@@ -313,7 +313,14 @@ class SettingsWindow:
             bg="#1A1B24", fg="#FFFFFF", selectcolor="#242838", activebackground="#1A1B24",
             activeforeground="#00E5A3", font=("Segoe UI", 9)
         )
-        startup_cb.pack(anchor="w", pady=(0, 10))
+        startup_cb.pack(anchor="w", pady=(0, 6))
+
+        self.btn_desktop_sc = tk.Button(
+            right_col, text="Create Desktop Shortcut", bg="#242838", fg="#FFFFFF",
+            activebackground="#2A2D3C", activeforeground="#00E5A3", bd=0, padx=8, pady=4,
+            font=("Segoe UI", 8), command=self._create_desktop_shortcut
+        )
+        self.btn_desktop_sc.pack(anchor="w", pady=(0, 10))
 
         # Accent Color Palette
         tk.Label(right_col, text="Accent Theme:", fg="#FFFFFF", bg="#1A1B24", font=("Segoe UI", 9)).pack(anchor="w", pady=(0, 6))
@@ -433,6 +440,14 @@ class SettingsWindow:
     def _on_mode_change(self):
         new_mode = self.mode_var.get()
         self.local_cfg["mode"] = new_mode
+
+    def _create_desktop_shortcut(self):
+        import startup_manager
+        if startup_manager.create_desktop_shortcut():
+            self.btn_desktop_sc.config(text="✓ Desktop Shortcut Created", fg="#00E5A3")
+            self.record_status_lbl.config(text="Desktop shortcut placed on Desktop!", fg="#00E5A3")
+        else:
+            self.btn_desktop_sc.config(text="Failed to create shortcut", fg="#EF4444")
 
     def _reset_defaults(self):
         from config_manager import DEFAULT_CONFIG

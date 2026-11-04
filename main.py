@@ -274,6 +274,7 @@ class MacropadAudioApp:
             item("Widget Position", position_menu),
             item("Slide & Fade Animation", _toggle_anim, checked=_is_anim),
             item("Start with Windows", _toggle_startup, checked=_is_startup),
+            item("Create Desktop Shortcut", self._tray_create_desktop_shortcut),
             item("Refresh Audio Sessions", self._tray_refresh_sessions),
             item("Open Config File", self._tray_open_config),
             pystray.Menu.SEPARATOR,
@@ -285,6 +286,10 @@ class MacropadAudioApp:
             "Open Volume - Audio Mixer & Macropad",
             menu=menu
         )
+
+    def _tray_create_desktop_shortcut(self, icon, item):
+        import startup_manager
+        startup_manager.create_desktop_shortcut()
 
     def _tray_open_settings(self, icon, item):
         self.action_queue.put((self._show_settings, ()))

@@ -150,6 +150,12 @@ To have Open-Volume launch automatically whenever you log into Windows:
   - Run `install_startup.bat` to enable startup.
   - Run `uninstall_startup.bat` to disable startup.
 
+### Option 5: Desktop Shortcut
+To create a desktop shortcut (`Open Volume.lnk`) with the custom application icon and silent zero-window launch:
+- **From Settings UI**: Click **"Create Desktop Shortcut"**.
+- **From System Tray**: Right-click tray icon > **"Create Desktop Shortcut"**.
+- **From 1-Click Script**: Double-click `create_desktop_shortcut.bat`.
+
 ---
 
 ## ⚙️ Configuration (`config.json`)

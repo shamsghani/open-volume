@@ -168,6 +168,13 @@ class TestStartupManager(unittest.TestCase):
         startup_manager.set_startup_enabled(initial_state)
         print("\n  [PASS] Startup shortcut creation, detection, and removal verified.")
 
+    def test_02_desktop_shortcut(self):
+        import startup_manager
+        res = startup_manager.create_desktop_shortcut()
+        self.assertTrue(res, "Failed to create desktop shortcut!")
+        self.assertTrue(startup_manager.is_desktop_shortcut_exists(), "Desktop shortcut was not detected on disk!")
+        print("\n  [PASS] Desktop shortcut creation and detection verified.")
+
 def run_all_tests():
     print("=" * 65)
     print("   MOUNTAIN EVEREST NUMPAD MACROPAD - FULL TEST SUITE")

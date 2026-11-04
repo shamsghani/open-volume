@@ -71,7 +71,7 @@
   "behavior": {
     "auto_hide_seconds": 6,
     "cycle_wraparound": true,
-    "start_on_boot": false
+    "start_on_boot": true
   },
   "appearance": {
     "position": "top-center",

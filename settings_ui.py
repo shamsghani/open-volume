@@ -82,8 +82,8 @@ class SettingsWindow:
     def _build_ui(self):
         self.win = tk.Toplevel(self.root)
         self.win.title("Open Volume - Settings & Keybindings")
-        win_w = 680
-        win_h = min(930, max(760, self.win.winfo_screenheight() - 100))
+        win_w = 700
+        win_h = min(960, max(800, self.win.winfo_screenheight() - 80))
         self.win.geometry(f"{win_w}x{win_h}")
         self.win.minsize(640, 760)
         self.win.config(bg="#121318")
@@ -125,7 +125,7 @@ class SettingsWindow:
         ).pack(side=tk.LEFT)
 
         self.title_badge = tk.Label(
-            title_row, text=" v1.4.0 ", fg="#121318", bg=accent,
+            title_row, text=" v1.5.0 ", fg="#121318", bg=accent,
             font=("Segoe UI", 8, "bold"), padx=6, pady=2
         )
         self.title_badge.pack(side=tk.LEFT, padx=10)
@@ -225,11 +225,15 @@ class SettingsWindow:
 
         action_labels = [
             ("toggle_layer", "Toggle HUD Layer", "Global shortcut to open/close overlay"),
+            ("toggle_mic_mute", "Toggle Mic Mute", "System-wide global mic mute/unmute"),
             ("volume_up", "Volume Up (+)", "Increase volume of selected app"),
             ("volume_down", "Volume Down (-)", "Decrease volume of selected app"),
             ("next_app", "Next App", "Cycle to next audio application"),
             ("prev_app", "Previous App", "Cycle to previous audio application"),
             ("toggle_mute", "Toggle Mute", "Mute or unmute selected application"),
+            ("play_pause", "Play / Pause", "Toggle media playback"),
+            ("next_track", "Next Track", "Skip to next media track"),
+            ("prev_track", "Previous Track", "Return to previous media track"),
             ("exit_layer", "Exit HUD", "Dismiss overlay immediately")
         ]
 
@@ -308,6 +312,31 @@ class SettingsWindow:
         )
         anim_cb.pack(anchor="w", pady=(4, 4))
 
+        # Power Feature Toggles
+        self.focus_var = tk.BooleanVar(value=self.local_cfg.get("behavior", {}).get("follow_focus", True))
+        focus_cb = tk.Checkbutton(
+            right_col, text="Follow Active Window (Auto-Select App)", variable=self.focus_var,
+            bg="#1A1B24", fg="#FFFFFF", selectcolor="#242838", activebackground="#1A1B24",
+            activeforeground="#00E5A3", font=("Segoe UI", 9)
+        )
+        focus_cb.pack(anchor="w", pady=(2, 2))
+
+        self.curve_var = tk.BooleanVar(value=self.local_cfg.get("volume", {}).get("perceptual_curve", True))
+        curve_cb = tk.Checkbutton(
+            right_col, text="Smooth Perceptual dB Volume Curve", variable=self.curve_var,
+            bg="#1A1B24", fg="#FFFFFF", selectcolor="#242838", activebackground="#1A1B24",
+            activeforeground="#00E5A3", font=("Segoe UI", 9)
+        )
+        curve_cb.pack(anchor="w", pady=(2, 2))
+
+        self.media_var = tk.BooleanVar(value=self.local_cfg.get("behavior", {}).get("numpad_media_keys", True))
+        media_cb = tk.Checkbutton(
+            right_col, text="Numpad Media Keys (7=Prev, 9=Next, 3=Play, .=Mic)", variable=self.media_var,
+            bg="#1A1B24", fg="#FFFFFF", selectcolor="#242838", activebackground="#1A1B24",
+            activeforeground="#00E5A3", font=("Segoe UI", 9)
+        )
+        media_cb.pack(anchor="w", pady=(2, 2))
+
         # Startup toggle
         import startup_manager
         current_startup = startup_manager.is_startup_enabled()
@@ -317,14 +346,14 @@ class SettingsWindow:
             bg="#1A1B24", fg="#FFFFFF", selectcolor="#242838", activebackground="#1A1B24",
             activeforeground="#00E5A3", font=("Segoe UI", 9)
         )
-        startup_cb.pack(anchor="w", pady=(0, 6))
+        startup_cb.pack(anchor="w", pady=(2, 4))
 
         self.btn_desktop_sc = tk.Button(
             right_col, text="Create Desktop Shortcut", bg="#242838", fg="#FFFFFF",
             activebackground="#2A2D3C", activeforeground="#00E5A3", bd=0, padx=8, pady=4,
             font=("Segoe UI", 8), command=self._create_desktop_shortcut
         )
-        self.btn_desktop_sc.pack(anchor="w", pady=(0, 10))
+        self.btn_desktop_sc.pack(anchor="w", pady=(0, 6))
 
         # Theme Palettes Selector (Full width across card)
         import theme_manager
@@ -509,6 +538,11 @@ class SettingsWindow:
     def _save_and_apply(self):
         self.local_cfg["mode"] = self.mode_var.get()
         self.local_cfg.setdefault("appearance", {})["animation_enabled"] = self.anim_var.get()
+
+        # Update behavior & volume options
+        self.local_cfg.setdefault("behavior", {})["follow_focus"] = self.focus_var.get()
+        self.local_cfg.setdefault("behavior", {})["numpad_media_keys"] = self.media_var.get()
+        self.local_cfg.setdefault("volume", {})["perceptual_curve"] = self.curve_var.get()
 
         # Update startup setting
         import startup_manager

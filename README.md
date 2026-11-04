@@ -16,6 +16,25 @@ Compatible out-of-the-box with:
 - **Instant Layer 2 Toggle**:
   - Full-size / Numpad: Press **`Ctrl + NumLock`**, **Double-tap `NumLock`**, or **`Ctrl + Numpad *`**.
   - TKL / Laptop / Custom: Press **`Ctrl + Alt + V`** (fully rebindable).
+- **Follow Focus (Active Window Auto-Select)**:
+  - When entering Layer 2, Open-Volume instantly detects your foreground active application (e.g., your game, Discord, Spotify, Chrome, or YouTube window) and automatically pre-selects its volume card on the HUD without requiring manual cycling!
+- **Global Microphone Management & Mute**:
+  - One-tap global microphone mute with **`Numpad .`** or custom global hotkey (**`Ctrl + Alt + M`**).
+  - Floating toast notifications and real-time live HUD badge (`🎙️ MIC` / `🎙️ MUTED`) showing microphone status.
+- **Numpad Media Transport Controls**:
+  - Control your media player without leaving your game or editor:
+    - **`Numpad 7`**: Previous Track
+    - **`Numpad 9`**: Next Track
+    - **`Numpad 3`**: Play / Pause
+- **Audio Profiles & Presets**:
+  - Quick-switch sound profiles directly from the System Tray or settings:
+    - **Gaming**: Master 90%, Discord 85%, Spotify 35%, Chrome 50%.
+    - **Focus**: Master 75%, Spotify 65%, Chrome 20%, System Sounds 0%.
+    - **Cinema**: Master 100%, Chrome / VLC / Media 90%, Discord 40%.
+- **Live Peak VU Audio Metering**:
+  - Real-time hardware peak meter reading on Windows Master and active application sessions, rendering responsive audio activity dots and peak level indicators.
+- **Perceptual (dB / Exponential) Volume Curve**:
+  - Uses an acoustic power curve ($P^{1.8}$) so volume transitions below 40% feel silky smooth and natural, matching human hearing biology instead of raw linear jumps.
 - **Dedicated Volume Controls**:
   - `+` (`Numpad +` or `Up Arrow`): Increase volume (+5% default, +2% with Shift for fine tuning).
   - `-` (`Numpad -` or `Down Arrow`): Decrease volume (-5% default, -2% with Shift).
@@ -49,7 +68,7 @@ Compatible out-of-the-box with:
 ## 📦 Releases & Downloads
 
 Pre-built standalone releases for Windows 10 & 11 (64-bit) are available on [GitHub Releases](https://github.com/shamsghani/open-volume/releases):
-- **`OpenVolume-v1.3.1-windows-x64.zip`**: Complete portable bundle (includes executable, custom assets, `config.json`, background runner, and utility scripts).
+- **`OpenVolume-v1.5.0-windows-x64.zip`**: Complete portable bundle (includes executable, custom assets, `config.json`, background runner, and utility scripts).
 - **`MountainEverestNumpad_Standalone.exe`**: Single-file portable executable.
 
 ---
@@ -91,7 +110,11 @@ Pre-built standalone releases for Windows 10 & 11 (64-bit) are available on [Git
 | **`5`** / **`Numpad Enter`** | **Toggle Mute / Unmute** | Type 5 / Numpad Enter |
 | **`Main Keyboard Enter`** | *Ignored by Layer 2 (Works normally)* | Normal Enter |
 | **`0`** – **`9`** | Jump directly to Application # (`0` = System Master) | Type number |
-| **`.`** | Reset volume to 100% | Type `.` |
+| **`7`** | **Previous Track** (Media Key) | Type 7 |
+| **`9`** | **Next Track** (Media Key) | Type 9 |
+| **`3`** | **Play / Pause** (Media Key) | Type 3 |
+| **`.`** (`Decimal`) | **Toggle Global Microphone Mute** | Type `.` |
+| **`.`** (`Numpad Del` with Shift) | **Reset volume to 100%** | Type `.` |
 
 ### Default Custom Macros (TKL, Laptops, Compact Keyboards)
 

@@ -37,17 +37,57 @@ DEFAULT_CONFIG = {
         "exit_layer": {
             "vk": 0x1B, "ctrl": False, "alt": False, "shift": False, "win": False,
             "display": "Escape"
+        },
+        "toggle_mic_mute": {
+            "vk": 0x4D, "ctrl": True, "alt": True, "shift": False, "win": False,
+            "display": "Ctrl + Alt + M"
+        },
+        "play_pause": {
+            "vk": 0x20, "ctrl": True, "alt": True, "shift": False, "win": False,
+            "display": "Ctrl + Alt + Space"
+        },
+        "next_track": {
+            "vk": 0x27, "ctrl": True, "alt": True, "shift": False, "win": False,
+            "display": "Ctrl + Alt + Right"
+        },
+        "prev_track": {
+            "vk": 0x25, "ctrl": True, "alt": True, "shift": False, "win": False,
+            "display": "Ctrl + Alt + Left"
         }
     },
     "volume": {
         "step_percent": 5,
         "fine_step_percent": 2,
-        "sound_feedback": True
+        "sound_feedback": True,
+        "perceptual_curve": True
     },
     "behavior": {
         "auto_hide_seconds": 6,
         "cycle_wraparound": True,
-        "start_on_boot": False
+        "start_on_boot": False,
+        "follow_focus": True,
+        "numpad_media_keys": True
+    },
+    "pinned_apps": ["Discord", "Spotify", "Google Chrome"],
+    "profiles": {
+        "gaming": {
+            "name": "Gaming Mode",
+            "emoji": "🎮",
+            "master": 85,
+            "apps": { "Discord": 100, "Spotify": 25, "System Sounds": 0 }
+        },
+        "focus": {
+            "name": "Focus / Work",
+            "emoji": "🎧",
+            "master": 60,
+            "apps": { "Spotify": 60, "Google Chrome": 30, "Discord": 0 }
+        },
+        "cinema": {
+            "name": "Cinema / Movie",
+            "emoji": "🍿",
+            "master": 100,
+            "apps": { "VLC Media Player": 100, "Google Chrome": 100, "System Sounds": 0, "Discord": 20 }
+        }
     },
     "appearance": {
         "position": "bottom-right",

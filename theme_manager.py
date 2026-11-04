@@ -169,3 +169,4 @@ def get_active_theme_id(config: Dict[str, Any]) -> str:
             return tid
 
     return DEFAULT_THEME_ID
+

@@ -62,7 +62,9 @@ class MacropadAudioApp:
 
         self.config_mgr = ConfigManager()
         self.config = self.config_mgr.config
-        self.mixer = AudioMixer()
+        curve_enabled = self.config.get("volume", {}).get("perceptual_curve", True)
+        pinned = self.config.get("pinned_apps", ["Discord", "Spotify", "Google Chrome"])
+        self.mixer = AudioMixer(perceptual_curve=curve_enabled, pinned_apps=pinned)
 
         # Thread-safe event queue for decoupling hook thread from Tkinter GUI thread
         self.action_queue = queue.Queue()
@@ -90,7 +92,11 @@ class MacropadAudioApp:
             "on_select_next": self._dispatch_select_next,
             "on_select_prev": self._dispatch_select_prev,
             "on_toggle_mute": self._dispatch_toggle_mute,
-            "on_select_index": self._dispatch_select_index
+            "on_select_index": self._dispatch_select_index,
+            "on_toggle_mic_mute": self._dispatch_toggle_mic_mute,
+            "on_play_pause": self._dispatch_play_pause,
+            "on_next_track": self._dispatch_next_track,
+            "on_prev_track": self._dispatch_prev_track
         }
         self.hook = NumpadLayerHook(self.config, callbacks)
 
@@ -127,10 +133,20 @@ class MacropadAudioApp:
     def _dispatch_layer_enter(self):
         self.action_queue.put((self._handle_layer_enter, ()))
 
+    def _refresh_overlay_hud(self):
+        apps = self.mixer.get_apps()
+        idx = self.mixer.get_selected_index()
+        mic = self.mixer.get_microphone_info()
+        dev = self.mixer.get_current_playback_device_name()
+        peaks = self.mixer.get_peak_levels()
+        self.overlay.update_data(apps, idx, mic_info=mic, device_name=dev, peak_levels=peaks)
+
     def _handle_layer_enter(self):
         print("[App] _handle_layer_enter -> Displaying HUD overlay!")
         self.mixer.refresh()
-        self.overlay.update_data(self.mixer.get_apps(), self.mixer.get_selected_index())
+        if self.config.get("behavior", {}).get("follow_focus", True):
+            self.mixer.auto_select_foreground_app()
+        self._refresh_overlay_hud()
         self.overlay.show()
         self._update_tray_state()
 
@@ -150,7 +166,7 @@ class MacropadAudioApp:
         app = self.mixer.get_selected_app()
         name = app['name'] if app else 'Unknown'
         print(f"[App] Vol UP (+{step}%) -> {name}: {new_vol}%")
-        self.overlay.update_data(self.mixer.get_apps(), self.mixer.get_selected_index())
+        self._refresh_overlay_hud()
 
     def _dispatch_volume_down(self, step):
         self.action_queue.put((self._handle_volume_down, (step,)))
@@ -160,7 +176,7 @@ class MacropadAudioApp:
         app = self.mixer.get_selected_app()
         name = app['name'] if app else 'Unknown'
         print(f"[App] Vol DOWN (-{step}%) -> {name}: {new_vol}%")
-        self.overlay.update_data(self.mixer.get_apps(), self.mixer.get_selected_index())
+        self._refresh_overlay_hud()
 
     def _dispatch_select_next(self):
         self.action_queue.put((self._handle_select_next, ()))
@@ -169,7 +185,7 @@ class MacropadAudioApp:
         app = self.mixer.select_next()
         name = app['name'] if app else 'Unknown'
         print(f"[App] Cycle NEXT -> {name}")
-        self.overlay.update_data(self.mixer.get_apps(), self.mixer.get_selected_index())
+        self._refresh_overlay_hud()
 
     def _dispatch_select_prev(self):
         self.action_queue.put((self._handle_select_prev, ()))
@@ -178,7 +194,7 @@ class MacropadAudioApp:
         app = self.mixer.select_prev()
         name = app['name'] if app else 'Unknown'
         print(f"[App] Cycle PREV -> {name}")
-        self.overlay.update_data(self.mixer.get_apps(), self.mixer.get_selected_index())
+        self._refresh_overlay_hud()
 
     def _dispatch_toggle_mute(self):
         self.action_queue.put((self._handle_toggle_mute, ()))
@@ -188,7 +204,7 @@ class MacropadAudioApp:
         app = self.mixer.get_selected_app()
         name = app['name'] if app else 'Unknown'
         print(f"[App] Mute Toggle -> {name}: {'MUTED' if muted else 'UNMUTED'}")
-        self.overlay.update_data(self.mixer.get_apps(), self.mixer.get_selected_index())
+        self._refresh_overlay_hud()
 
     def _dispatch_select_index(self, idx):
         self.action_queue.put((self._handle_select_index, (idx,)))
@@ -197,7 +213,46 @@ class MacropadAudioApp:
         app = self.mixer.select_index(idx)
         name = app['name'] if app else 'Unknown'
         print(f"[App] Select Index [{idx}] -> {name}")
-        self.overlay.update_data(self.mixer.get_apps(), self.mixer.get_selected_index())
+        self._refresh_overlay_hud()
+
+    def _dispatch_toggle_mic_mute(self):
+        self.action_queue.put((self._handle_toggle_mic_mute, ()))
+
+    def _handle_toggle_mic_mute(self):
+        new_mute = self.mixer.toggle_microphone_mute()
+        msg = "Microphone MUTED" if new_mute else "Microphone LIVE"
+        icon = "🎙️"
+        print(f"[App] Mic Mute -> {msg}")
+        self.overlay.show_toast(msg, icon=icon)
+        self._refresh_overlay_hud()
+        self._update_tray_state()
+
+    def _dispatch_play_pause(self):
+        self.action_queue.put((self._handle_play_pause, ()))
+
+    def _handle_play_pause(self):
+        user32.keybd_event(0xB3, 0, 0, 0)
+        user32.keybd_event(0xB3, 0, 2, 0)
+        print("[App] Media -> Play / Pause")
+        self.overlay.show_toast("Play / Pause", icon="⏯")
+
+    def _dispatch_next_track(self):
+        self.action_queue.put((self._handle_next_track, ()))
+
+    def _handle_next_track(self):
+        user32.keybd_event(0xB0, 0, 0, 0)
+        user32.keybd_event(0xB0, 0, 2, 0)
+        print("[App] Media -> Next Track")
+        self.overlay.show_toast("Next Track", icon="⏭")
+
+    def _dispatch_prev_track(self):
+        self.action_queue.put((self._handle_prev_track, ()))
+
+    def _handle_prev_track(self):
+        user32.keybd_event(0xB1, 0, 0, 0)
+        user32.keybd_event(0xB1, 0, 2, 0)
+        print("[App] Media -> Previous Track")
+        self.overlay.show_toast("Previous Track", icon="⏮")
 
     def _on_timeout(self):
         self.hook.set_layer_active(False)
@@ -282,13 +337,52 @@ class MacropadAudioApp:
             item("Bottom Right", _set_pos("bottom-right"), checked=_is_pos("bottom-right"), radio=True)
         )
 
+        # Profiles menu
+        profiles = self.config.get("profiles", {})
+        def _apply_prof(pkey):
+            def handler(icon, item):
+                self.action_queue.put((self._apply_profile_action, (pkey,)))
+            return handler
+
+        prof_items = [
+            item(f"{p.get('emoji', '🎛️')} {p.get('name', k)}", _apply_prof(k))
+            for k, p in profiles.items()
+        ]
+        profiles_menu = pystray.Menu(*prof_items)
+
+        def _is_mic_muted(item):
+            return self.mixer.get_microphone_info().get("muted", False)
+
+        def _is_follow_focus(item):
+            return self.config.get("behavior", {}).get("follow_focus", True)
+
+        def _toggle_follow_focus(icon, item):
+            self.action_queue.put((self._toggle_follow_focus_action, ()))
+
+        def _is_curve(item):
+            return self.config.get("volume", {}).get("perceptual_curve", True)
+
+        def _toggle_curve(icon, item):
+            self.action_queue.put((self._toggle_curve_action, ()))
+
+        def _is_media(item):
+            return self.config.get("behavior", {}).get("numpad_media_keys", True)
+
+        def _toggle_media(icon, item):
+            self.action_queue.put((self._toggle_media_action, ()))
+
         menu = pystray.Menu(
             item(lambda text: "Open Volume: " + ("ACTIVE" if self.hook.is_layer_active() else "READY"), None, enabled=False),
             item("Toggle HUD Layer", self._tray_toggle_layer),
+            item("Mute Microphone", lambda icon, item: self._dispatch_toggle_mic_mute(), checked=_is_mic_muted),
             item("Settings & Keybindings...", self._tray_open_settings),
             pystray.Menu.SEPARATOR,
+            item("Audio Profiles", profiles_menu),
             item("Theme Palette", themes_menu),
             item("Widget Position", position_menu),
+            item("Follow Active Window", _toggle_follow_focus, checked=_is_follow_focus),
+            item("Smooth dB Curve", _toggle_curve, checked=_is_curve),
+            item("Numpad Media Keys", _toggle_media, checked=_is_media),
             item("Slide & Fade Animation", _toggle_anim, checked=_is_anim),
             item("Start with Windows", _toggle_startup, checked=_is_startup),
             item("Create Desktop Shortcut", self._tray_create_desktop_shortcut),
@@ -303,6 +397,46 @@ class MacropadAudioApp:
             "Open Volume - Audio Mixer & Macropad",
             menu=menu
         )
+
+    def _apply_profile_action(self, profile_key: str):
+        profiles = self.config.get("profiles", {})
+        prof = profiles.get(profile_key)
+        if prof:
+            self.mixer.apply_profile(prof)
+            name = prof.get("name", profile_key)
+            emoji = prof.get("emoji", "🎛️")
+            print(f"[App] Profile applied: {name}")
+            self.overlay.show_toast(f"Profile: {name}", icon=emoji)
+            self._refresh_overlay_hud()
+
+    def _toggle_follow_focus_action(self):
+        curr = self.config.get("behavior", {}).get("follow_focus", True)
+        new_val = not curr
+        self.config.setdefault("behavior", {})["follow_focus"] = new_val
+        self.config_mgr.config = self.config
+        self.config_mgr.save()
+        self._update_tray_state()
+        print(f"[App] Follow focus toggled -> {new_val}")
+
+    def _toggle_curve_action(self):
+        curr = self.config.get("volume", {}).get("perceptual_curve", True)
+        new_val = not curr
+        self.config.setdefault("volume", {})["perceptual_curve"] = new_val
+        self.mixer.set_perceptual_curve(new_val)
+        self.config_mgr.config = self.config
+        self.config_mgr.save()
+        self._update_tray_state()
+        print(f"[App] Perceptual curve toggled -> {new_val}")
+
+    def _toggle_media_action(self):
+        curr = self.config.get("behavior", {}).get("numpad_media_keys", True)
+        new_val = not curr
+        self.config.setdefault("behavior", {})["numpad_media_keys"] = new_val
+        self.config_mgr.config = self.config
+        self.config_mgr.save()
+        self.hook.update_config(self.config)
+        self._update_tray_state()
+        print(f"[App] Numpad media keys toggled -> {new_val}")
 
     def _tray_create_desktop_shortcut(self, icon, item):
         import startup_manager
@@ -337,7 +471,7 @@ class MacropadAudioApp:
         app_cfg = preview_cfg.get("appearance", {})
         self.overlay.update_appearance(app_cfg)
         self.mixer.refresh()
-        self.overlay.update_data(self.mixer.get_apps(), self.mixer.get_selected_index())
+        self._refresh_overlay_hud()
         self.overlay.show(animate=True)
 
     def _change_position(self, new_pos: str):
@@ -350,7 +484,7 @@ class MacropadAudioApp:
 
         # Show brief preview with animation at the new spot
         self.mixer.refresh()
-        self.overlay.update_data(self.mixer.get_apps(), self.mixer.get_selected_index())
+        self._refresh_overlay_hud()
         self.overlay.show(animate=True)
 
     def _toggle_animation(self):

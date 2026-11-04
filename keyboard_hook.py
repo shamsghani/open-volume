@@ -241,6 +241,15 @@ class NumpadLayerHook:
                 custom_bindings = self.config.get("custom_bindings", {})
 
                 # --- 1. TOGGLE LAYER 2 CHECK ---
+                # Global Mic Mute Shortcut Check (e.g. Ctrl + Alt + M)
+                if is_keydown:
+                    mic_b = custom_bindings.get("toggle_mic_mute", {})
+                    if self._matches_binding(mic_b, vk, ctrl_is_active, alt_is_active, shift_is_active, win_is_active):
+                        self._play_sound("mute")
+                        if "on_toggle_mic_mute" in self.callbacks:
+                            self.callbacks["on_toggle_mic_mute"]()
+                        return 1
+
                 # Check custom toggle hotkey (e.g. Ctrl + Alt + V)
                 if is_keydown and mode in ("hybrid", "custom"):
                     toggle_b = custom_bindings.get("toggle_layer", {})
@@ -341,6 +350,24 @@ class NumpadLayerHook:
                                     self.callbacks["on_toggle_mute"]()
                                 return 1
 
+                            if self._matches_binding(custom_bindings.get("play_pause"), vk, ctrl_is_active, alt_is_active, shift_is_active, win_is_active):
+                                self._play_sound("cycle")
+                                if "on_play_pause" in self.callbacks:
+                                    self.callbacks["on_play_pause"]()
+                                return 1
+
+                            if self._matches_binding(custom_bindings.get("next_track"), vk, ctrl_is_active, alt_is_active, shift_is_active, win_is_active):
+                                self._play_sound("cycle")
+                                if "on_next_track" in self.callbacks:
+                                    self.callbacks["on_next_track"]()
+                                return 1
+
+                            if self._matches_binding(custom_bindings.get("prev_track"), vk, ctrl_is_active, alt_is_active, shift_is_active, win_is_active):
+                                self._play_sound("cycle")
+                                if "on_prev_track" in self.callbacks:
+                                    self.callbacks["on_prev_track"]()
+                                return 1
+
                             if self._matches_binding(custom_bindings.get("exit_layer"), vk, ctrl_is_active, alt_is_active, shift_is_active, win_is_active):
                                 print("[Hook] Custom Exit -> Exiting Layer 2")
                                 self.set_layer_active(False)
@@ -384,6 +411,30 @@ class NumpadLayerHook:
                             if "on_toggle_mute" in self.callbacks:
                                 self.callbacks["on_toggle_mute"]()
                             return 1
+
+                        # Numpad Media Controls (7 = Prev, 9 = Next, 3 = Play/Pause, Decimal = Mic Mute)
+                        media_enabled = self.config.get("behavior", {}).get("numpad_media_keys", True)
+                        if media_enabled:
+                            if vk == VK_NUMPAD7:
+                                self._play_sound("cycle")
+                                if "on_prev_track" in self.callbacks:
+                                    self.callbacks["on_prev_track"]()
+                                return 1
+                            if vk == VK_NUMPAD9:
+                                self._play_sound("cycle")
+                                if "on_next_track" in self.callbacks:
+                                    self.callbacks["on_next_track"]()
+                                return 1
+                            if vk == VK_NUMPAD3:
+                                self._play_sound("cycle")
+                                if "on_play_pause" in self.callbacks:
+                                    self.callbacks["on_play_pause"]()
+                                return 1
+                            if vk == VK_DECIMAL:
+                                self._play_sound("mute")
+                                if "on_toggle_mic_mute" in self.callbacks:
+                                    self.callbacks["on_toggle_mic_mute"]()
+                                return 1
 
                         # Direct App Jump: 0 through 9 on Numpad
                         if VK_NUMPAD0 <= vk <= VK_NUMPAD9:

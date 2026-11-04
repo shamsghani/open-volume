@@ -47,6 +47,15 @@ class OverlayWidget:
         self.danger_color = app_cfg.get("danger_color", "#FF4B5C")
         self.badge_text = app_cfg.get("badge_text", "#121318")
         self.width = app_cfg.get("width", 360)
+
+        # Extended HUD state (Device, Mic, Peak Meters, Toasts)
+        self.mic_info = None
+        self.device_name = ""
+        self.peak_levels = []
+        self.toast_text = ""
+        self.toast_icon = ""
+        self.toast_time = 0.0
+        self.toast_duration = 1.8
         self.margin_x = app_cfg.get("margin_x", 28)
         self.margin_y = app_cfg.get("margin_y", 60)
         self.max_visible_apps = app_cfg.get("max_visible_apps", 6)
@@ -304,12 +313,30 @@ class OverlayWidget:
     def reset_timer(self):
         self.last_activity_time = time.time()
 
-    def update_data(self, apps: list, selected_index: int):
+    def show_toast(self, text: str, icon: str = "ℹ️", duration: float = 1.8):
+        """Displays a floating toast notification banner on the HUD."""
+        self.toast_text = text
+        self.toast_icon = icon
+        self.toast_duration = duration
+        self.toast_time = time.time()
+        self.reset_timer()
+        self.show()
+        self.render()
+
+    def update_data(self, apps: list, selected_index: int = 0, mic_info: dict = None, device_name: str = None, peak_levels: list = None):
         self.apps = apps
         self.selected_index = selected_index
+        if mic_info is not None:
+            self.mic_info = mic_info
+        if device_name is not None:
+            self.device_name = device_name
+        if peak_levels is not None:
+            self.peak_levels = peak_levels
         self.reset_timer()
         if self.visible:
             self.render()
+
+    update_apps = update_data
 
     def _check_timer(self):
         if self.visible and self.auto_hide_seconds > 0:
@@ -337,20 +364,36 @@ class OverlayWidget:
 
         # Dynamic height calculation
         list_count = min(len(self.apps), self.max_visible_apps)
-        height = 48 + 98 + (list_count * 32) + 40
+        toast_active = (time.time() - self.toast_time < self.toast_duration) and bool(self.toast_text)
+        extra_h = 32 if toast_active else 0
+        height = 56 + 98 + (list_count * 32) + 40 + extra_h
         self._reposition(height)
 
-        y = 12
+        y = 10
 
         # 1. Header
         self.canvas.create_oval(18, y + 4, 26, y + 12, fill=self.accent_color, outline="")
         self.canvas.create_text(
             34, y + 8,
             anchor="w",
-            text="NUMPAD LAYER 2 : AUDIO MIXER",
+            text="OPEN VOLUME : AUDIO MIXER",
             fill=self.text_primary,
             font=("Segoe UI", 9, "bold")
         )
+
+        # Microphone indicator
+        if self.mic_info:
+            mic_muted = self.mic_info.get("muted", False)
+            mic_text = "🎙️ MUTED" if mic_muted else "🎙️ MIC"
+            mic_color = self.danger_color if mic_muted else self.accent_color
+            self.canvas.create_text(
+                self.width - 66, y + 8,
+                anchor="e",
+                text=mic_text,
+                fill=mic_color,
+                font=("Segoe UI", 8, "bold")
+            )
+
         self.canvas.create_text(
             self.width - 18, y + 8,
             anchor="e",
@@ -358,7 +401,33 @@ class OverlayWidget:
             fill=self.accent_color,
             font=("Segoe UI", 8, "bold")
         )
-        y += 28
+
+        # Active Output Device Subtitle
+        dev_label = self.device_name or "Speakers"
+        if len(dev_label) > 38:
+            dev_label = dev_label[:36] + "..."
+        self.canvas.create_text(
+            34, y + 23,
+            anchor="w",
+            text=f"🔊 {dev_label}",
+            fill=self.text_secondary,
+            font=("Segoe UI", 8)
+        )
+        y += 36
+
+        # Toast notification banner (if active)
+        if toast_active:
+            t_x1, t_y1 = 14, y
+            t_x2, t_y2 = self.width - 14, y + 26
+            self.canvas.create_rectangle(t_x1, t_y1, t_x2, t_y2, fill=self.selected_bg, outline=self.accent_color, width=1)
+            self.canvas.create_text(
+                self.width // 2, y + 13,
+                anchor="center",
+                text=f"{self.toast_icon}  {self.toast_text}",
+                fill=self.accent_color,
+                font=("Segoe UI", 9, "bold")
+            )
+            y += 32
 
         # 2. Main Focus Card (Selected App)
         card_x1, card_y1 = 14, y
@@ -422,6 +491,13 @@ class OverlayWidget:
                 fill=fill_color, outline=""
             )
 
+        # Live Peak Audio Level Meter Tick
+        if self.peak_levels and 0 <= self.selected_index < len(self.peak_levels):
+            pk = self.peak_levels[self.selected_index]
+            if pk > 0.01:
+                pk_x = bar_x1 + int((bar_x2 - bar_x1) * min(1.0, pk))
+                self.canvas.create_line(pk_x, bar_y1 - 2, pk_x, bar_y2 + 2, fill="#FFFFFF", width=2)
+
         y += 102
 
         # 3. Compact App List
@@ -482,7 +558,7 @@ class OverlayWidget:
         y += 6
         self.canvas.create_line(14, y, self.width - 14, y, fill="#232530")
         y += 12
-        legend = "[8/2] Cycle   [+/-] Vol   [5] Mute   [NumLk] Exit"
+        legend = "[8/2] Cycle   [+/-] Vol   [5] Mute   [7/9/3] Media   [NumLk] Exit"
         self.canvas.create_text(
             self.width // 2, y,
             anchor="center",

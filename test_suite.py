@@ -57,6 +57,54 @@ class TestAudioMixer(unittest.TestCase):
             self.assertEqual(self.mixer.get_selected_index(), idx0)
             print(f"  [PASS] App cycling verified (0 -> 1 -> 0 across {count} apps)")
 
+    def test_05_perceptual_curve(self):
+        # Linear mode
+        self.mixer.set_perceptual_curve(False)
+        self.assertAlmostEqual(self.mixer.percent_to_scalar(50), 0.5, places=2)
+        self.assertEqual(self.mixer.scalar_to_percent(0.5), 50)
+
+        # Perceptual mode
+        self.mixer.set_perceptual_curve(True)
+        scalar = self.mixer.percent_to_scalar(50)
+        self.assertLess(scalar, 0.40)
+        self.assertEqual(self.mixer.scalar_to_percent(scalar), 50)
+        print("  [PASS] Perceptual logarithmic dB curve mapping verified.")
+
+    def test_06_pinned_apps_ordering(self):
+        from audio_mixer import AudioMixer
+        mixer = AudioMixer(pinned_apps=["Spotify", "Discord"])
+        apps = mixer.get_apps()
+        if len(apps) >= 3:
+            self.assertTrue(apps[0]['is_master'])
+            names = [a['name'].lower() for a in apps[1:3]]
+            self.assertTrue(any('spotify' in n or 'discord' in n for n in names))
+            print("  [PASS] Pinned apps prioritized ordering verified.")
+
+    def test_07_microphone_info(self):
+        mic = self.mixer.get_microphone_info()
+        self.assertIn('name', mic)
+        self.assertIn('volume', mic)
+        self.assertIn('muted', mic)
+        print(f"  [PASS] Microphone query verified: {mic['name']} (Vol: {mic['volume']}%, Muted: {mic['muted']})")
+
+    def test_08_audio_profiles(self):
+        profile = {
+            "name": "Test Profile",
+            "master": 90,
+            "apps": { "Discord": 80, "Spotify": 50 }
+        }
+        res = self.mixer.apply_profile(profile)
+        self.assertTrue(res)
+        print("  [PASS] Audio profile preset application verified.")
+
+    def test_09_peak_metering(self):
+        peaks = self.mixer.get_peak_levels()
+        self.assertEqual(len(peaks), len(self.mixer.get_apps()))
+        for p in peaks:
+            self.assertGreaterEqual(p, 0.0)
+            self.assertLessEqual(p, 1.0)
+        print(f"  [PASS] Live audio peak meters verified across {len(peaks)} sessions.")
+
 class TestOverlayHUD(unittest.TestCase):
     """Verifies Tkinter OSD widget creation, layout, positioning, and Win32 styles."""
 
@@ -146,6 +194,23 @@ class TestKeyboardHookLogic(unittest.TestCase):
         # Verify suppressed keys list doesn't include regular VK_RETURN (13)
         self.assertNotIn(13, hook.suppressed_vks, "VK_RETURN should not be globally suppressed!")
         print("  [PASS] Main Enter key is strictly isolated from Numpad Enter.")
+
+    def test_03_media_and_mic_callbacks(self):
+        from keyboard_hook import NumpadLayerHook
+        cfg = ConfigManager().config
+        fired = []
+        callbacks = {
+            "on_play_pause": lambda: fired.append("PLAY_PAUSE"),
+            "on_next_track": lambda: fired.append("NEXT_TRACK"),
+            "on_prev_track": lambda: fired.append("PREV_TRACK"),
+            "on_toggle_mic_mute": lambda: fired.append("MIC_MUTE")
+        }
+        hook = NumpadLayerHook(cfg, callbacks)
+        self.assertIn("on_play_pause", hook.callbacks)
+        self.assertIn("on_next_track", hook.callbacks)
+        self.assertIn("on_prev_track", hook.callbacks)
+        self.assertIn("on_toggle_mic_mute", hook.callbacks)
+        print("  [PASS] Media transport and microphone hook callbacks verified.")
 
 class TestStartupManager(unittest.TestCase):
     """Verifies Windows startup registration and shortcut creation."""

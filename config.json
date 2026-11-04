@@ -61,20 +61,54 @@
       "shift": false,
       "win": false,
       "display": "Escape"
+    },
+    "toggle_mic_mute": {
+      "vk": 77,
+      "ctrl": true,
+      "alt": true,
+      "shift": false,
+      "win": false,
+      "display": "Ctrl + Alt + M"
+    },
+    "play_pause": {
+      "vk": 32,
+      "ctrl": true,
+      "alt": true,
+      "shift": false,
+      "win": false,
+      "display": "Ctrl + Alt + Space"
+    },
+    "next_track": {
+      "vk": 39,
+      "ctrl": true,
+      "alt": true,
+      "shift": false,
+      "win": false,
+      "display": "Ctrl + Alt + Right"
+    },
+    "prev_track": {
+      "vk": 37,
+      "ctrl": true,
+      "alt": true,
+      "shift": false,
+      "win": false,
+      "display": "Ctrl + Alt + Left"
     }
   },
   "volume": {
     "step_percent": 5,
     "fine_step_percent": 2,
-    "sound_feedback": true
+    "sound_feedback": true,
+    "perceptual_curve": true
   },
   "behavior": {
     "auto_hide_seconds": 6,
     "cycle_wraparound": true,
-    "start_on_boot": true
+    "start_on_boot": true,
+    "follow_focus": true,
+    "numpad_media_keys": true
   },
   "appearance": {
-    "theme": "cyberpunk",
     "position": "top-center",
     "animation_enabled": true,
     "animation_duration_ms": 180,
@@ -82,15 +116,54 @@
     "margin_y": 60,
     "width": 360,
     "max_visible_apps": 6,
-    "accent_color": "#00E5A3",
-    "bg_color": "#121318",
-    "card_bg": "#1A1B24",
-    "selected_bg": "#242838",
-    "text_primary": "#FFFFFF",
-    "text_secondary": "#8E90A6",
-    "border_color": "#2A2D3C",
-    "track_bg": "#272A38",
-    "danger_color": "#FF4B5C",
-    "badge_text": "#121318"
+    "theme": "amber",
+    "accent_color": "#FFB000",
+    "bg_color": "#0C0C0C",
+    "card_bg": "#161616",
+    "selected_bg": "#2C200B",
+    "text_primary": "#FFE4A0",
+    "text_secondary": "#A07820",
+    "border_color": "#3D2E0B",
+    "track_bg": "#201808",
+    "danger_color": "#FF4444",
+    "badge_text": "#0C0C0C"
+  },
+  "pinned_apps": [
+    "Discord",
+    "Spotify",
+    "Google Chrome"
+  ],
+  "profiles": {
+    "gaming": {
+      "name": "Gaming Mode",
+      "emoji": "\ud83c\udfae",
+      "master": 85,
+      "apps": {
+        "Discord": 100,
+        "Spotify": 25,
+        "System Sounds": 0
+      }
+    },
+    "focus": {
+      "name": "Focus / Work",
+      "emoji": "\ud83c\udfa7",
+      "master": 60,
+      "apps": {
+        "Spotify": 60,
+        "Google Chrome": 30,
+        "Discord": 0
+      }
+    },
+    "cinema": {
+      "name": "Cinema / Movie",
+      "emoji": "\ud83c\udf7f",
+      "master": 100,
+      "apps": {
+        "VLC Media Player": 100,
+        "Google Chrome": 100,
+        "System Sounds": 0,
+        "Discord": 20
+      }
+    }
   }
 }

@@ -57,12 +57,17 @@ DEFAULT_CONFIG = {
         "margin_y": 60,
         "width": 360,
         "max_visible_apps": 6,
+        "theme": "cyberpunk",
         "accent_color": "#00E5A3",
         "bg_color": "#121318",
         "card_bg": "#1A1B24",
         "selected_bg": "#242838",
         "text_primary": "#FFFFFF",
-        "text_secondary": "#8E90A6"
+        "text_secondary": "#8E90A6",
+        "border_color": "#2A2D3C",
+        "track_bg": "#272A38",
+        "danger_color": "#FF4B5C",
+        "badge_text": "#121318"
     }
 }
 

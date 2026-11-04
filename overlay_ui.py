@@ -42,6 +42,10 @@ class OverlayWidget:
         self.selected_bg = app_cfg.get("selected_bg", "#242838")
         self.text_primary = app_cfg.get("text_primary", "#FFFFFF")
         self.text_secondary = app_cfg.get("text_secondary", "#8E90A6")
+        self.border_color = app_cfg.get("border_color", "#2A2D3C")
+        self.track_bg = app_cfg.get("track_bg", "#272A38")
+        self.danger_color = app_cfg.get("danger_color", "#FF4B5C")
+        self.badge_text = app_cfg.get("badge_text", "#121318")
         self.width = app_cfg.get("width", 360)
         self.margin_x = app_cfg.get("margin_x", 28)
         self.margin_y = app_cfg.get("margin_y", 60)
@@ -72,7 +76,7 @@ class OverlayWidget:
             self.win,
             bg=self.bg_color,
             highlightthickness=1,
-            highlightbackground="#2A2D3C",
+            highlightbackground=self.border_color,
             bd=0
         )
         self.canvas.pack(fill=tk.BOTH, expand=True)
@@ -157,6 +161,31 @@ class OverlayWidget:
     def set_position(self, new_position: str):
         """Updates the widget anchor position dynamically."""
         self.position = new_position
+        if self.visible:
+            self.render()
+
+    def update_appearance(self, app_cfg: dict):
+        """Dynamically updates theme colors, geometry, and styling."""
+        self.accent_color = app_cfg.get("accent_color", self.accent_color)
+        self.bg_color = app_cfg.get("bg_color", self.bg_color)
+        self.card_bg = app_cfg.get("card_bg", self.card_bg)
+        self.selected_bg = app_cfg.get("selected_bg", self.selected_bg)
+        self.text_primary = app_cfg.get("text_primary", self.text_primary)
+        self.text_secondary = app_cfg.get("text_secondary", self.text_secondary)
+        self.border_color = app_cfg.get("border_color", self.border_color)
+        self.track_bg = app_cfg.get("track_bg", self.track_bg)
+        self.danger_color = app_cfg.get("danger_color", self.danger_color)
+        self.badge_text = app_cfg.get("badge_text", self.badge_text)
+
+        if "position" in app_cfg:
+            self.position = app_cfg["position"]
+        if "animation_enabled" in app_cfg:
+            self.animation_enabled = app_cfg["animation_enabled"]
+        if "animation_duration_ms" in app_cfg:
+            self.animation_duration = app_cfg["animation_duration_ms"] / 1000.0
+
+        self.win.config(bg=self.bg_color)
+        self.canvas.config(bg=self.bg_color, highlightbackground=self.border_color)
         if self.visible:
             self.render()
 
@@ -337,7 +366,7 @@ class OverlayWidget:
         # Card background
         self.canvas.create_rectangle(
             card_x1, card_y1, card_x2, card_y2,
-            fill=self.card_bg, outline="#2A2D3C", width=1
+            fill=self.card_bg, outline=self.border_color, width=1
         )
         # Left accent stripe
         self.canvas.create_rectangle(
@@ -360,7 +389,7 @@ class OverlayWidget:
         # Volume Badge / Mute status
         if sel_app['muted']:
             vol_badge = "MUTED"
-            badge_color = "#FF4B5C"
+            badge_color = self.danger_color
         else:
             vol_badge = f"{sel_app['volume']}%"
             badge_color = self.accent_color
@@ -382,12 +411,12 @@ class OverlayWidget:
         # Track background
         self.canvas.create_rectangle(
             bar_x1, bar_y1, bar_x2, bar_y2,
-            fill="#272A38", outline=""
+            fill=self.track_bg, outline=""
         )
         # Fill
         fill_width = int((bar_x2 - bar_x1) * (sel_app['volume'] / 100.0))
         if fill_width > 0:
-            fill_color = "#FF4B5C" if sel_app['muted'] else self.accent_color
+            fill_color = self.danger_color if sel_app['muted'] else self.accent_color
             self.canvas.create_rectangle(
                 bar_x1, bar_y1, bar_x1 + fill_width, bar_y2,
                 fill=fill_color, outline=""
@@ -438,7 +467,7 @@ class OverlayWidget:
 
             # Vol text
             row_vol_text = "MUTED" if item['muted'] else f"{item['volume']}%"
-            row_vol_color = "#FF4B5C" if item['muted'] else (self.accent_color if is_sel else self.text_secondary)
+            row_vol_color = self.danger_color if item['muted'] else (self.accent_color if is_sel else self.text_secondary)
             self.canvas.create_text(
                 row_x2 - 10, row_y1 + 14,
                 anchor="e",

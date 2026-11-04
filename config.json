@@ -74,6 +74,7 @@
     "start_on_boot": true
   },
   "appearance": {
+    "theme": "cyberpunk",
     "position": "top-center",
     "animation_enabled": true,
     "animation_duration_ms": 180,
@@ -86,6 +87,10 @@
     "card_bg": "#1A1B24",
     "selected_bg": "#242838",
     "text_primary": "#FFFFFF",
-    "text_secondary": "#8E90A6"
+    "text_secondary": "#8E90A6",
+    "border_color": "#2A2D3C",
+    "track_bg": "#272A38",
+    "danger_color": "#FF4B5C",
+    "badge_text": "#121318"
   }
 }

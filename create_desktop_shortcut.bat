@@ -9,3 +9,4 @@ echo Desktop shortcut created! You can now launch Open-Volume
 echo directly from your Desktop with 0 background console windows.
 echo ========================================================
 timeout /t 3 >nul
+

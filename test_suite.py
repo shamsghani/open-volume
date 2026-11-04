@@ -175,6 +175,33 @@ class TestStartupManager(unittest.TestCase):
         self.assertTrue(startup_manager.is_desktop_shortcut_exists(), "Desktop shortcut was not detected on disk!")
         print("\n  [PASS] Desktop shortcut creation and detection verified.")
 
+class TestThemeManager(unittest.TestCase):
+    """Verifies Theme System paletting, defaults, and config application."""
+
+    def test_01_themes_definition(self):
+        import theme_manager
+        themes = theme_manager.list_themes()
+        self.assertGreaterEqual(len(themes), 8)
+        required_keys = [
+            "id", "name", "accent_color", "bg_color", "card_bg",
+            "selected_bg", "text_primary", "text_secondary",
+            "border_color", "track_bg", "danger_color"
+        ]
+        for t in themes:
+            for k in required_keys:
+                self.assertIn(k, t, f"Theme {t.get('id')} missing key {k}")
+                self.assertTrue(t[k], f"Theme {t.get('id')} has empty {k}")
+        print(f"\n  [PASS] All {len(themes)} themes verified with complete color palettes.")
+
+    def test_02_apply_theme_to_config(self):
+        import theme_manager
+        cfg = {"appearance": {}}
+        theme_manager.apply_theme_to_config(cfg, "dracula")
+        self.assertEqual(cfg["appearance"]["theme"], "dracula")
+        self.assertEqual(cfg["appearance"]["accent_color"], "#BD93F9")
+        self.assertEqual(theme_manager.get_active_theme_id(cfg), "dracula")
+        print("  [PASS] Theme application and active id resolution verified.")
+
 def run_all_tests():
     print("=" * 65)
     print("   MOUNTAIN EVEREST NUMPAD MACROPAD - FULL TEST SUITE")
@@ -186,6 +213,7 @@ def run_all_tests():
     suite.addTest(loader.loadTestsFromTestCase(TestOverlayHUD))
     suite.addTest(loader.loadTestsFromTestCase(TestKeyboardHookLogic))
     suite.addTest(loader.loadTestsFromTestCase(TestStartupManager))
+    suite.addTest(loader.loadTestsFromTestCase(TestThemeManager))
 
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)

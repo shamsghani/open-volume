@@ -121,7 +121,7 @@ From the Settings UI you can:
 - Switch operating modes: **Hybrid** (both numpad and custom macros), **Numpad Only**, or **Custom Macros Only**.
 - Rebind any action using the interactive **Record** button (simply press your desired key combination).
 - Choose screen positioning using the interactive **3x3 Screen Anchor Grid**.
-- Pick your accent color with instant live preview.
+- Choose from **8 Handcrafted Theme Palettes** (Cyberpunk Mint, Nordic Frost, Dracula, Catppuccin Mocha, Solarized Dark, Retro Amber CRT, OLED Pure Black, Clean Minimal Light) directly from Settings or the System Tray.
 - Toggle and adjust slide & fade animations.
 
 ---

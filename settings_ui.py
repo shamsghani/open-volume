@@ -82,8 +82,10 @@ class SettingsWindow:
     def _build_ui(self):
         self.win = tk.Toplevel(self.root)
         self.win.title("Open Volume - Settings & Keybindings")
-        self.win.geometry("640x740")
-        self.win.minsize(580, 680)
+        win_w = 680
+        win_h = min(930, max(760, self.win.winfo_screenheight() - 100))
+        self.win.geometry(f"{win_w}x{win_h}")
+        self.win.minsize(640, 760)
         self.win.config(bg="#121318")
 
         # Set taskbar icon if exists
@@ -98,9 +100,9 @@ class SettingsWindow:
         self.win.update_idletasks()
         sw = self.win.winfo_screenwidth()
         sh = self.win.winfo_screenheight()
-        x = (sw - 640) // 2
-        y = (sh - 740) // 2
-        self.win.geometry(f"640x740+{x}+{y}")
+        x = (sw - win_w) // 2
+        y = (sh - win_h) // 2
+        self.win.geometry(f"{win_w}x{win_h}+{x}+{y}")
 
         # Local edit copy of config
         self.local_cfg = json.loads(json.dumps(self.config))
@@ -122,16 +124,40 @@ class SettingsWindow:
             font=("Segoe UI", 16, "bold")
         ).pack(side=tk.LEFT)
 
-        tk.Label(
-            title_row, text=" v1.3.2 ", fg="#121318", bg=accent,
+        self.title_badge = tk.Label(
+            title_row, text=" v1.4.0 ", fg="#121318", bg=accent,
             font=("Segoe UI", 8, "bold"), padx=6, pady=2
-        ).pack(side=tk.LEFT, padx=10)
+        )
+        self.title_badge.pack(side=tk.LEFT, padx=10)
 
         tk.Label(
             header,
             text="Universal Audio Mixer & Macro Manager for Numpads, TKL, and Laptops",
             fg="#8E90A6", bg="#121318", font=("Segoe UI", 9)
         ).pack(anchor="w", pady=(4, 0))
+
+        # 5. Footer Buttons (anchored at bottom first)
+        footer = tk.Frame(main_frame, bg="#121318")
+        footer.pack(fill=tk.X, side=tk.BOTTOM, pady=(14, 0))
+
+        tk.Button(
+            footer, text="Reset Defaults", bg="#242838", fg="#8E90A6", activebackground="#2A2D3C",
+            activeforeground="#FFFFFF", bd=0, padx=14, pady=8, font=("Segoe UI", 9),
+            command=self._reset_defaults
+        ).pack(side=tk.LEFT)
+
+        self.save_btn = tk.Button(
+            footer, text="Save & Apply", bg=accent, fg="#121318", activebackground="#33FFB8",
+            activeforeground="#121318", bd=0, padx=20, pady=8, font=("Segoe UI", 10, "bold"),
+            command=self._save_and_apply
+        )
+        self.save_btn.pack(side=tk.RIGHT)
+
+        tk.Button(
+            footer, text="Preview HUD", bg="#1A1B24", fg="#FFFFFF", activebackground="#242838",
+            activeforeground="#FFFFFF", bd=1, highlightbackground="#2A2D3C", padx=14, pady=8,
+            font=("Segoe UI", 9), command=self._trigger_preview
+        ).pack(side=tk.RIGHT, padx=10)
 
         # 2. Section: Keyboard Mode
         self._build_mode_section(main_frame)
@@ -142,35 +168,13 @@ class SettingsWindow:
         # 4. Section: Appearance & HUD Position
         self._build_appearance_section(main_frame)
 
-        # 5. Footer Buttons
-        footer = tk.Frame(main_frame, bg="#121318")
-        footer.pack(fill=tk.X, side=tk.BOTTOM, pady=(16, 0))
-
-        tk.Button(
-            footer, text="Reset Defaults", bg="#242838", fg="#8E90A6", activebackground="#2A2D3C",
-            activeforeground="#FFFFFF", bd=0, padx=14, pady=8, font=("Segoe UI", 9),
-            command=self._reset_defaults
-        ).pack(side=tk.LEFT)
-
-        tk.Button(
-            footer, text="Save & Apply", bg=accent, fg="#121318", activebackground="#33FFB8",
-            activeforeground="#121318", bd=0, padx=20, pady=8, font=("Segoe UI", 10, "bold"),
-            command=self._save_and_apply
-        ).pack(side=tk.RIGHT)
-
-        tk.Button(
-            footer, text="Preview HUD", bg="#1A1B24", fg="#FFFFFF", activebackground="#242838",
-            activeforeground="#FFFFFF", bd=1, highlightbackground="#2A2D3C", padx=14, pady=8,
-            font=("Segoe UI", 9), command=self._trigger_preview
-        ).pack(side=tk.RIGHT, padx=10)
-
         # Global key press binding for recording
         self.win.bind("<KeyPress>", self._on_key_press)
         self.win.bind("<Button-1>", self._on_click_outside)
 
     def _build_mode_section(self, parent):
         card = tk.Frame(parent, bg="#1A1B24", padx=14, pady=12, bd=1, highlightbackground="#2A2D3C", highlightthickness=1)
-        card.pack(fill=tk.X, pady=(0, 14))
+        card.pack(fill=tk.X, pady=(0, 10))
 
         tk.Label(card, text="KEYBOARD MODE", fg="#8E90A6", bg="#1A1B24", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, 8))
 
@@ -199,7 +203,7 @@ class SettingsWindow:
 
     def _build_keybindings_section(self, parent):
         card = tk.Frame(parent, bg="#1A1B24", padx=14, pady=12, bd=1, highlightbackground="#2A2D3C", highlightthickness=1)
-        card.pack(fill=tk.X, pady=(0, 14))
+        card.pack(fill=tk.X, pady=(0, 10))
 
         header_row = tk.Frame(card, bg="#1A1B24")
         header_row.pack(fill=tk.X, pady=(0, 8))
@@ -238,8 +242,8 @@ class SettingsWindow:
             info = tk.Frame(row, bg="#1A1B24")
             info.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-            tk.Label(info, text=act_name, fg="#FFFFFF", bg="#1A1B24", font=("Segoe UI", 9, "bold")).pack(anchor="w")
-            tk.Label(info, text=desc, fg="#8E90A6", bg="#1A1B24", font=("Segoe UI", 8)).pack(anchor="w")
+            tk.Label(info, text=act_name, fg="#FFFFFF", bg="#1A1B24", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
+            tk.Label(info, text=f"  ({desc})", fg="#8E90A6", bg="#1A1B24", font=("Segoe UI", 8)).pack(side=tk.LEFT)
 
             b_data = bindings_cfg.get(act_key, {})
             disp = b_data.get("display", "None")
@@ -322,30 +326,33 @@ class SettingsWindow:
         )
         self.btn_desktop_sc.pack(anchor="w", pady=(0, 10))
 
-        # Accent Color Palette
-        tk.Label(right_col, text="Accent Theme:", fg="#FFFFFF", bg="#1A1B24", font=("Segoe UI", 9)).pack(anchor="w", pady=(0, 6))
-        palette_frame = tk.Frame(right_col, bg="#1A1B24")
-        palette_frame.pack(anchor="w")
+        # Theme Palettes Selector (Full width across card)
+        import theme_manager
+        tk.Label(card, text="THEME PALETTES (8 STYLES)", fg="#8E90A6", bg="#1A1B24", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(14, 6))
+        theme_grid = tk.Frame(card, bg="#1A1B24")
+        theme_grid.pack(fill=tk.X, pady=(0, 4))
 
-        colors = [
-            ("#00E5A3", "Mint"),
-            ("#38BDF8", "Sky"),
-            ("#A855F7", "Purple"),
-            ("#F97316", "Orange"),
-            ("#EF4444", "Crimson")
-        ]
+        all_themes = theme_manager.list_themes()
+        self.theme_buttons = {}
+        active_theme = theme_manager.get_active_theme_id(self.local_cfg)
 
-        self.color_buttons = {}
-        curr_accent = self.local_cfg.get("appearance", {}).get("accent_color", "#00E5A3")
-
-        for c_hex, c_name in colors:
+        for idx, t in enumerate(all_themes):
+            r = idx // 4
+            c = idx % 4
             btn = tk.Button(
-                palette_frame, text="  ", bg=c_hex, activebackground=c_hex, bd=2,
-                relief=tk.SOLID if curr_accent.upper() == c_hex.upper() else tk.FLAT,
-                width=3, height=1, command=lambda c=c_hex: self._select_accent_color(c)
+                theme_grid,
+                text=f"{t['emoji']}  {t['name']}",
+                font=("Segoe UI", 8),
+                pady=5,
+                command=lambda tid=t["id"]: self._select_theme(tid)
             )
-            btn.pack(side=tk.LEFT, padx=3)
-            self.color_buttons[c_hex] = btn
+            btn.grid(row=r, column=c, padx=3, pady=3, sticky="ew")
+            self.theme_buttons[t["id"]] = btn
+
+        for c in range(4):
+            theme_grid.columnconfigure(c, weight=1)
+
+        self._refresh_theme_buttons(active_theme)
 
     def _refresh_position_buttons(self, selected_pos):
         accent = self.local_cfg.get("appearance", {}).get("accent_color", "#00E5A3")
@@ -359,12 +366,41 @@ class SettingsWindow:
         self.local_cfg.setdefault("appearance", {})["position"] = p_val
         self._refresh_position_buttons(p_val)
 
-    def _select_accent_color(self, c_hex):
-        self.local_cfg.setdefault("appearance", {})["accent_color"] = c_hex
-        for ch, btn in self.color_buttons.items():
-            btn.config(relief=tk.SOLID if ch.upper() == c_hex.upper() else tk.FLAT)
+    def _refresh_theme_buttons(self, selected_theme_id):
+        import theme_manager
+        for t_id, btn in self.theme_buttons.items():
+            t = theme_manager.get_theme(t_id)
+            if t_id == selected_theme_id:
+                btn.config(
+                    bg=t["selected_bg"],
+                    fg=t["accent_color"],
+                    bd=2,
+                    relief=tk.SOLID,
+                    highlightbackground=t["accent_color"],
+                    font=("Segoe UI", 8, "bold")
+                )
+            else:
+                btn.config(
+                    bg=t["card_bg"],
+                    fg=t["text_primary"],
+                    bd=1,
+                    relief=tk.FLAT,
+                    highlightbackground="#2A2D3C",
+                    font=("Segoe UI", 8)
+                )
+
+    def _select_theme(self, theme_id):
+        import theme_manager
+        theme_manager.apply_theme_to_config(self.local_cfg, theme_id)
+        self._refresh_theme_buttons(theme_id)
         curr_pos = self.local_cfg.get("appearance", {}).get("position", "bottom-right")
         self._refresh_position_buttons(curr_pos)
+        accent = self.local_cfg.get("appearance", {}).get("accent_color", "#00E5A3")
+        if hasattr(self, "title_badge"):
+            self.title_badge.config(bg=accent)
+        if hasattr(self, "save_btn"):
+            self.save_btn.config(bg=accent)
+        self._trigger_preview()
 
     def _start_recording(self, action_key):
         if self.recording_action:
@@ -458,6 +494,11 @@ class SettingsWindow:
         self._refresh_binding_rows()
         curr_pos = self.local_cfg.get("appearance", {}).get("position", "bottom-right")
         self._refresh_position_buttons(curr_pos)
+        self._refresh_theme_buttons("cyberpunk")
+        if hasattr(self, "title_badge"):
+            self.title_badge.config(bg="#00E5A3")
+        if hasattr(self, "save_btn"):
+            self.save_btn.config(bg="#00E5A3")
         self.record_status_lbl.config(text="Reset to default settings", fg="#00E5A3")
 
     def _trigger_preview(self):

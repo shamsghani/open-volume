@@ -53,6 +53,7 @@ def build():
     shutil.copy("stop.bat", os.path.join(dist_dir, "stop.bat"))
     shutil.copy("install_startup.bat", os.path.join(dist_dir, "install_startup.bat"))
     shutil.copy("uninstall_startup.bat", os.path.join(dist_dir, "uninstall_startup.bat"))
+    shutil.copy("create_desktop_shortcut.bat", os.path.join(dist_dir, "create_desktop_shortcut.bat"))
 
     # Also build standalone onefile version for portability
     print("\nRunning PyInstaller (onefile standalone)...")

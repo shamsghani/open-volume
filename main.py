@@ -256,6 +256,22 @@ class MacropadAudioApp:
         def _toggle_startup(icon, item):
             self.action_queue.put((self._toggle_startup_action, ()))
 
+        import theme_manager
+
+        def _is_theme(tid):
+            return lambda item: self.config.get("appearance", {}).get("theme", "cyberpunk") == tid
+
+        def _set_theme(tid):
+            def handler(icon, item):
+                self.action_queue.put((self._apply_theme_action, (tid,)))
+            return handler
+
+        theme_items = [
+            item(f"{t['emoji']} {t['name']}", _set_theme(t["id"]), checked=_is_theme(t["id"]), radio=True)
+            for t in theme_manager.list_themes()
+        ]
+        themes_menu = pystray.Menu(*theme_items)
+
         position_menu = pystray.Menu(
             item("Top Left", _set_pos("top-left"), checked=_is_pos("top-left"), radio=True),
             item("Top Center", _set_pos("top-center"), checked=_is_pos("top-center"), radio=True),
@@ -271,6 +287,7 @@ class MacropadAudioApp:
             item("Toggle HUD Layer", self._tray_toggle_layer),
             item("Settings & Keybindings...", self._tray_open_settings),
             pystray.Menu.SEPARATOR,
+            item("Theme Palette", themes_menu),
             item("Widget Position", position_menu),
             item("Slide & Fade Animation", _toggle_anim, checked=_is_anim),
             item("Start with Windows", _toggle_startup, checked=_is_startup),
@@ -297,22 +314,28 @@ class MacropadAudioApp:
     def _show_settings(self):
         self.settings_win.show()
 
+    def _apply_theme_action(self, theme_id: str):
+        import theme_manager
+        theme_manager.apply_theme_to_config(self.config, theme_id)
+        self.config_mgr.config = self.config
+        self.config_mgr.save()
+        app_cfg = self.config.get("appearance", {})
+        self.overlay.update_appearance(app_cfg)
+        self._update_tray_state()
+        print(f"[Tray] Theme switched to: {theme_id}")
+
     def _on_settings_saved(self, new_cfg):
         print("[App] Settings updated and applied dynamically.")
         self.config = new_cfg
         self.hook.update_config(new_cfg)
         app_cfg = new_cfg.get("appearance", {})
-        self.overlay.set_position(app_cfg.get("position", "bottom-right"))
-        self.overlay.animation_enabled = app_cfg.get("animation_enabled", True)
-        self.overlay.accent_color = app_cfg.get("accent_color", "#00E5A3")
+        self.overlay.update_appearance(app_cfg)
         self._update_tray_state()
 
     def _on_settings_preview(self, preview_cfg):
         print("[App] Triggering HUD preview from Settings...")
         app_cfg = preview_cfg.get("appearance", {})
-        self.overlay.set_position(app_cfg.get("position", "bottom-right"))
-        self.overlay.animation_enabled = app_cfg.get("animation_enabled", True)
-        self.overlay.accent_color = app_cfg.get("accent_color", "#00E5A3")
+        self.overlay.update_appearance(app_cfg)
         self.mixer.refresh()
         self.overlay.update_data(self.mixer.get_apps(), self.mixer.get_selected_index())
         self.overlay.show(animate=True)

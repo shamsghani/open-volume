@@ -89,6 +89,7 @@ class AudioMixer:
                 'muted': master_muted,
                 'endpoint': master,
                 'meter': master_meter,
+                'meters': [master_meter] if master_meter else [],
                 'raw_name': 'master'
             })
         except Exception as e:
@@ -155,6 +156,7 @@ class AudioMixer:
                     'muted': curr_mute,
                     'objs': vol_objs,
                     'meter': meter_objs[0] if meter_objs else None,
+                    'meters': meter_objs,
                     'raw_name': raw_pname
                 })
         except Exception as e:
@@ -280,16 +282,35 @@ class AudioMixer:
         """Returns a list of float peak audio levels (0.0 to 1.0) for each app in self.apps."""
         peaks = []
         for app in self.apps:
-            meter = app.get('meter')
-            if meter:
-                try:
-                    p = meter.GetPeakValue()
-                    peaks.append(min(1.0, max(0.0, float(p))))
-                except Exception:
-                    peaks.append(0.0)
-            else:
-                peaks.append(0.0)
+            meters = app.get('meters') or ([app.get('meter')] if app.get('meter') else [])
+            max_p = 0.0
+            for meter in meters:
+                if meter:
+                    try:
+                        p = meter.GetPeakValue()
+                        if p > max_p:
+                            max_p = float(p)
+                    except Exception:
+                        pass
+            peaks.append(min(1.0, max(0.0, max_p)))
         return peaks
+
+    def get_selected_peak_level(self) -> float:
+        """Returns the float peak level (0.0 to 1.0) for the currently selected app."""
+        if 0 <= self.selected_index < len(self.apps):
+            app = self.apps[self.selected_index]
+            meters = app.get('meters') or ([app.get('meter')] if app.get('meter') else [])
+            max_p = 0.0
+            for meter in meters:
+                if meter:
+                    try:
+                        p = meter.GetPeakValue()
+                        if p > max_p:
+                            max_p = float(p)
+                    except Exception:
+                        pass
+            return min(1.0, max(0.0, max_p))
+        return 0.0
 
     # --- Active Window Auto-Select ("Follow Focus") ---
     def get_foreground_process_name(self) -> str:

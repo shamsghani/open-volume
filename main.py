@@ -82,6 +82,7 @@ class MacropadAudioApp:
             self.config,
             on_timeout_callback=self._on_timeout
         )
+        self.overlay.set_peak_level_provider(self.mixer.get_peak_levels)
 
         # Hook callbacks
         callbacks = {

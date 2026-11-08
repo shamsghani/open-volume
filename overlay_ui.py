@@ -52,6 +52,14 @@ class OverlayWidget:
         self.mic_info = None
         self.device_name = ""
         self.peak_levels = []
+        self.peak_level_provider = None
+        self.live_meter_timer = None
+        self.smoothed_peak = 0.0
+        self.hold_peak = 0.0
+        self.hold_peak_time = 0.0
+        self.smoothed_app_peaks = []
+        self.slider_bar_coords = None
+        self.app_row_coords = []
         self.toast_text = ""
         self.toast_icon = ""
         self.toast_time = 0.0
@@ -208,6 +216,7 @@ class OverlayWidget:
         self.visible = True
         self.last_activity_time = time.time()
         self.render()
+        self._start_live_meter()
 
         if not self.animation_enabled or not animate:
             self.anim_in_progress = False
@@ -263,6 +272,7 @@ class OverlayWidget:
             self.win.attributes("-alpha", 1.0)
 
     def hide(self, animate: bool = True):
+        self._cancel_live_meter()
         if not self.visible:
             return
 
@@ -325,18 +335,155 @@ class OverlayWidget:
 
     def update_data(self, apps: list, selected_index: int = 0, mic_info: dict = None, device_name: str = None, peak_levels: list = None):
         self.apps = apps
-        self.selected_index = selected_index
+        if selected_index != self.selected_index:
+            self.selected_index = selected_index
+            self.smoothed_peak = peak_levels[selected_index] if (peak_levels and 0 <= selected_index < len(peak_levels)) else 0.0
+            self.hold_peak = self.smoothed_peak
+        else:
+            self.selected_index = selected_index
+
         if mic_info is not None:
             self.mic_info = mic_info
         if device_name is not None:
             self.device_name = device_name
         if peak_levels is not None:
             self.peak_levels = peak_levels
+            if 0 <= self.selected_index < len(peak_levels):
+                self.smoothed_peak = max(self.smoothed_peak, peak_levels[self.selected_index])
         self.reset_timer()
         if self.visible:
             self.render()
 
     update_apps = update_data
+
+    def set_peak_level_provider(self, provider_func):
+        """Sets the callable that returns the current list of float peak levels (0.0 to 1.0)."""
+        self.peak_level_provider = provider_func
+
+    def _start_live_meter(self):
+        """Starts the high-frequency (~33 FPS) live audio meter polling loop."""
+        self._cancel_live_meter()
+        self._poll_live_meter()
+
+    def _cancel_live_meter(self):
+        """Stops the live audio meter loop to preserve zero CPU when HUD is inactive."""
+        if hasattr(self, "live_meter_timer") and self.live_meter_timer:
+            try:
+                self.root.after_cancel(self.live_meter_timer)
+            except Exception:
+                pass
+            self.live_meter_timer = None
+
+    def _poll_live_meter(self):
+        """Polls CoreAudio for instantaneous audio peak values and renders live VU motion."""
+        if not self.visible:
+            return
+
+        if self.peak_level_provider:
+            try:
+                raw_peaks = self.peak_level_provider()
+                if raw_peaks:
+                    self._update_live_meter(raw_peaks)
+            except Exception:
+                pass
+
+        # Reschedule next frame in 30ms (~33 FPS)
+        if self.visible:
+            self.live_meter_timer = self.root.after(30, self._poll_live_meter)
+
+    def _update_live_meter(self, raw_peaks: list):
+        """Updates ballistic decay smoothing and redraws the live meter elements."""
+        if not raw_peaks:
+            return
+
+        # 1. Selected app ballistic smoothing (Instant Attack, Exponential Decay)
+        sel_raw = 0.0
+        if 0 <= self.selected_index < len(raw_peaks):
+            sel_raw = raw_peaks[self.selected_index]
+
+        if sel_raw >= self.smoothed_peak:
+            # Instant transient attack
+            self.smoothed_peak = sel_raw
+        else:
+            # Smooth exponential decay (~300ms release)
+            self.smoothed_peak = max(0.0, self.smoothed_peak * 0.84 - 0.004)
+            if self.smoothed_peak < sel_raw:
+                self.smoothed_peak = sel_raw
+
+        # Peak hold logic
+        now = time.time()
+        if sel_raw >= self.hold_peak:
+            self.hold_peak = sel_raw
+            self.hold_peak_time = now
+        elif now - self.hold_peak_time > 0.45:
+            self.hold_peak = max(0.0, self.hold_peak * 0.88 - 0.01)
+
+        # 2. App list rows ballistic smoothing
+        while len(self.smoothed_app_peaks) < len(raw_peaks):
+            self.smoothed_app_peaks.append(0.0)
+        for i in range(len(raw_peaks)):
+            r_pk = raw_peaks[i]
+            cur_pk = self.smoothed_app_peaks[i]
+            if r_pk >= cur_pk:
+                self.smoothed_app_peaks[i] = r_pk
+            else:
+                self.smoothed_app_peaks[i] = max(0.0, cur_pk * 0.82 - 0.005)
+
+        # 3. Fast canvas redraw for live meter elements
+        self._draw_live_meter()
+
+    def _draw_live_meter(self):
+        """Fast partial redraw of only the live peak audio meter elements (runs at 30+ FPS)."""
+        self.canvas.delete("live_vu")
+        if not self.visible or not self.slider_bar_coords:
+            return
+
+        bar_x1, bar_y1, bar_x2, bar_y2 = self.slider_bar_coords
+        total_w = bar_x2 - bar_x1
+        if total_w <= 0:
+            return
+
+        pk = self.smoothed_peak
+        pk_hold = self.hold_peak
+
+        # Render on main card progress bar
+        if pk > 0.005:
+            sig_w = int(total_w * min(1.0, pk))
+            
+            # Subtle luminous bottom strip along the active audio range
+            self.canvas.create_rectangle(
+                bar_x1, bar_y2 - 3, bar_x1 + sig_w, bar_y2,
+                fill="#FFFFFF", outline="", tags="live_vu"
+            )
+
+            # High-visibility live dancing peak needle
+            pk_x = bar_x1 + sig_w
+            self.canvas.create_line(
+                pk_x, bar_y1 - 3, pk_x, bar_y2 + 3,
+                fill="#FFFFFF", width=2, tags="live_vu"
+            )
+
+        # Peak hold tick
+        if pk_hold > 0.02 and pk_hold > pk:
+            hold_x = bar_x1 + int(total_w * min(1.0, pk_hold))
+            self.canvas.create_line(
+                hold_x, bar_y1 - 1, hold_x, bar_y2 + 1,
+                fill="#A0C4FF", width=1, tags="live_vu"
+            )
+
+        # Render live audio-playing dots on the visible app list rows
+        if hasattr(self, "app_row_coords") and self.app_row_coords:
+            for row_x1, row_y1, row_x2, row_y2, idx in self.app_row_coords:
+                if idx < len(self.smoothed_app_peaks):
+                    row_pk = self.smoothed_app_peaks[idx]
+                    if row_pk > 0.015:
+                        # Draw a small pulsing audio activity dot next to the volume percentage
+                        dot_x = row_x2 - 62
+                        dot_y = row_y1 + 14
+                        self.canvas.create_oval(
+                            dot_x - 3, dot_y - 3, dot_x + 3, dot_y + 3,
+                            fill=self.accent_color, outline="", tags="live_vu"
+                        )
 
     def _check_timer(self):
         if self.visible and self.auto_hide_seconds > 0:
@@ -477,6 +624,8 @@ class OverlayWidget:
         bar_x2 = card_x2 - 16
         bar_y2 = bar_y1 + 14
 
+        self.slider_bar_coords = (bar_x1, bar_y1, bar_x2, bar_y2)
+
         # Track background
         self.canvas.create_rectangle(
             bar_x1, bar_y1, bar_x2, bar_y2,
@@ -491,13 +640,6 @@ class OverlayWidget:
                 fill=fill_color, outline=""
             )
 
-        # Live Peak Audio Level Meter Tick
-        if self.peak_levels and 0 <= self.selected_index < len(self.peak_levels):
-            pk = self.peak_levels[self.selected_index]
-            if pk > 0.01:
-                pk_x = bar_x1 + int((bar_x2 - bar_x1) * min(1.0, pk))
-                self.canvas.create_line(pk_x, bar_y1 - 2, pk_x, bar_y2 + 2, fill="#FFFFFF", width=2)
-
         y += 102
 
         # 3. Compact App List
@@ -506,6 +648,7 @@ class OverlayWidget:
             start_idx = max(0, min(self.selected_index - 2, len(self.apps) - self.max_visible_apps))
 
         end_idx = min(start_idx + self.max_visible_apps, len(self.apps))
+        self.app_row_coords = []
 
         for idx in range(start_idx, end_idx):
             item = self.apps[idx]
@@ -515,6 +658,8 @@ class OverlayWidget:
             row_y2 = y + 28
             row_x1 = 14
             row_x2 = self.width - 14
+
+            self.app_row_coords.append((row_x1, row_y1, row_x2, row_y2, idx))
 
             if is_sel:
                 self.canvas.create_rectangle(
@@ -566,3 +711,6 @@ class OverlayWidget:
             fill=self.text_secondary,
             font=("Segoe UI", 8)
         )
+
+        # 5. Live Audio Meter Elements
+        self._draw_live_meter()

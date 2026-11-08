@@ -149,6 +149,58 @@ class TestOverlayHUD(unittest.TestCase):
         root.destroy()
         print("\n  [PASS] Overlay HUD created, styled, and verified with WS_EX_NOACTIVATE and WS_EX_TOPMOST.")
 
+    def test_02_live_peak_meter_loop_and_ballistics(self):
+        import tkinter as tk
+        from overlay_ui import OverlayWidget
+
+        cfg = ConfigManager().config
+        root = tk.Tk()
+        root.withdraw()
+
+        overlay = OverlayWidget(root, cfg)
+        dummy_apps = [
+            {'name': 'System (Master Volume)', 'volume': 75, 'muted': False},
+            {'name': 'Spotify', 'volume': 60, 'muted': False}
+        ]
+        overlay.update_data(dummy_apps, 1)
+
+        # Mock peak provider returning 0.70 for Spotify
+        mock_peaks = [0.10, 0.70]
+        overlay.set_peak_level_provider(lambda: mock_peaks)
+
+        overlay.show()
+        root.update()
+
+        # Check that live meter loop started
+        self.assertTrue(overlay.is_visible())
+        self.assertIsNotNone(overlay.live_meter_timer)
+
+        # Allow a few frames to process
+        for _ in range(5):
+            root.update()
+            time.sleep(0.035)
+
+        # Verify instant attack: smoothed_peak should have jumped to ~0.70
+        self.assertAlmostEqual(overlay.smoothed_peak, 0.70, places=2)
+        self.assertAlmostEqual(overlay.hold_peak, 0.70, places=2)
+
+        # Now mock silence (peak drops to 0.0)
+        mock_peaks = [0.0, 0.0]
+        for _ in range(4):
+            root.update()
+            time.sleep(0.035)
+
+        # Verify smooth exponential decay: should decay smoothly without immediately jumping to 0.0
+        self.assertGreater(overlay.smoothed_peak, 0.0)
+        self.assertLess(overlay.smoothed_peak, 0.70)
+
+        # Verify hide cleanly cancels live meter timer
+        overlay.hide()
+        root.update()
+        self.assertIsNone(overlay.live_meter_timer)
+        root.destroy()
+        print("  [PASS] Live VU meter real-time polling, instant attack, and exponential decay verified.")
+
 class TestKeyboardHookLogic(unittest.TestCase):
     """Verifies low-level keyboard hook logic, layer triggers, and key suppression."""
 

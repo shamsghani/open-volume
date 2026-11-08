@@ -1,5 +1,5 @@
 {
-  "mode": "hybrid",
+  "mode": "numpad",
   "hotkey": {
     "ctrl_numlock": true,
     "double_tap_numlock": true,
@@ -108,26 +108,6 @@
     "follow_focus": true,
     "numpad_media_keys": true
   },
-  "appearance": {
-    "position": "top-center",
-    "animation_enabled": true,
-    "animation_duration_ms": 180,
-    "margin_x": 28,
-    "margin_y": 60,
-    "width": 360,
-    "max_visible_apps": 6,
-    "theme": "amber",
-    "accent_color": "#FFB000",
-    "bg_color": "#0C0C0C",
-    "card_bg": "#161616",
-    "selected_bg": "#2C200B",
-    "text_primary": "#FFE4A0",
-    "text_secondary": "#A07820",
-    "border_color": "#3D2E0B",
-    "track_bg": "#201808",
-    "danger_color": "#FF4444",
-    "badge_text": "#0C0C0C"
-  },
   "pinned_apps": [
     "Discord",
     "Spotify",
@@ -165,5 +145,25 @@
         "Discord": 20
       }
     }
+  },
+  "appearance": {
+    "position": "top-center",
+    "animation_enabled": true,
+    "animation_duration_ms": 180,
+    "margin_x": 28,
+    "margin_y": 60,
+    "width": 360,
+    "max_visible_apps": 6,
+    "theme": "amber",
+    "accent_color": "#FFB000",
+    "bg_color": "#0C0C0C",
+    "card_bg": "#161616",
+    "selected_bg": "#2C200B",
+    "text_primary": "#FFE4A0",
+    "text_secondary": "#A07820",
+    "border_color": "#3D2E0B",
+    "track_bg": "#201808",
+    "danger_color": "#FF4444",
+    "badge_text": "#0C0C0C"
   }
 }

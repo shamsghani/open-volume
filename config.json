@@ -154,16 +154,16 @@
     "margin_y": 60,
     "width": 360,
     "max_visible_apps": 6,
-    "theme": "amber",
-    "accent_color": "#FFB000",
-    "bg_color": "#0C0C0C",
-    "card_bg": "#161616",
-    "selected_bg": "#2C200B",
-    "text_primary": "#FFE4A0",
-    "text_secondary": "#A07820",
-    "border_color": "#3D2E0B",
-    "track_bg": "#201808",
-    "danger_color": "#FF4444",
-    "badge_text": "#0C0C0C"
+    "theme": "oled",
+    "accent_color": "#10B981",
+    "bg_color": "#000000",
+    "card_bg": "#111111",
+    "selected_bg": "#222222",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#888888",
+    "border_color": "#282828",
+    "track_bg": "#1C1C1C",
+    "danger_color": "#EF4444",
+    "badge_text": "#000000"
   }
 }

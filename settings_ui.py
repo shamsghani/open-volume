@@ -83,7 +83,7 @@ class SettingsWindow:
         self.win = tk.Toplevel(self.root)
         self.win.title("Open Volume - Settings & Keybindings")
         win_w = 700
-        win_h = min(960, max(800, self.win.winfo_screenheight() - 80))
+        win_h = min(930, max(760, self.win.winfo_screenheight() - 80))
         self.win.geometry(f"{win_w}x{win_h}")
         self.win.minsize(640, 760)
         self.win.config(bg="#121318")
@@ -222,44 +222,53 @@ class SettingsWindow:
             w.destroy()
 
         bindings_cfg = self.local_cfg.get("custom_bindings", {})
+        accent = self.local_cfg.get("appearance", {}).get("accent_color", "#00E5A3")
 
-        action_labels = [
-            ("toggle_layer", "Toggle HUD Layer", "Global shortcut to open/close overlay"),
-            ("toggle_mic_mute", "Toggle Mic Mute", "System-wide global mic mute/unmute"),
-            ("volume_up", "Volume Up (+)", "Increase volume of selected app"),
-            ("volume_down", "Volume Down (-)", "Decrease volume of selected app"),
-            ("next_app", "Next App", "Cycle to next audio application"),
-            ("prev_app", "Previous App", "Cycle to previous audio application"),
-            ("toggle_mute", "Toggle Mute", "Mute or unmute selected application"),
-            ("play_pause", "Play / Pause", "Toggle media playback"),
-            ("next_track", "Next Track", "Skip to next media track"),
-            ("prev_track", "Previous Track", "Return to previous media track"),
-            ("exit_layer", "Exit HUD", "Dismiss overlay immediately")
+        col1_actions = [
+            ("toggle_layer", "Toggle HUD Layer"),
+            ("volume_up", "Volume Up (+)"),
+            ("volume_down", "Volume Down (-)"),
+            ("next_app", "Next App"),
+            ("prev_app", "Previous App"),
+            ("toggle_mute", "Toggle Mute")
         ]
+        col2_actions = [
+            ("toggle_mic_mute", "Toggle Mic Mute"),
+            ("play_pause", "Play / Pause"),
+            ("next_track", "Next Track"),
+            ("prev_track", "Previous Track"),
+            ("exit_layer", "Exit HUD")
+        ]
+
+        cols_frame = tk.Frame(self.bindings_container, bg="#1A1B24")
+        cols_frame.pack(fill=tk.X)
+
+        left_col = tk.Frame(cols_frame, bg="#1A1B24")
+        left_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+
+        right_col = tk.Frame(cols_frame, bg="#1A1B24")
+        right_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 0))
 
         self.btn_map = {}
 
-        for act_key, act_name, desc in action_labels:
-            row = tk.Frame(self.bindings_container, bg="#1A1B24", pady=3)
-            row.pack(fill=tk.X)
+        for col_frame, actions in [(left_col, col1_actions), (right_col, col2_actions)]:
+            for act_key, act_name in actions:
+                row = tk.Frame(col_frame, bg="#1A1B24", pady=2)
+                row.pack(fill=tk.X)
 
-            info = tk.Frame(row, bg="#1A1B24")
-            info.pack(side=tk.LEFT, fill=tk.X, expand=True)
+                tk.Label(row, text=act_name, fg="#FFFFFF", bg="#1A1B24", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
 
-            tk.Label(info, text=act_name, fg="#FFFFFF", bg="#1A1B24", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
-            tk.Label(info, text=f"  ({desc})", fg="#8E90A6", bg="#1A1B24", font=("Segoe UI", 8)).pack(side=tk.LEFT)
+                b_data = bindings_cfg.get(act_key, {})
+                disp = b_data.get("display", "None")
 
-            b_data = bindings_cfg.get(act_key, {})
-            disp = b_data.get("display", "None")
-
-            btn = tk.Button(
-                row, text=disp, bg="#242838", fg="#00E5A3", activebackground="#2A2D3C",
-                activeforeground="#33FFB8", bd=1, highlightbackground="#2A2D3C",
-                padx=12, pady=4, font=("Segoe UI", 9, "bold"), width=16,
-                command=lambda a=act_key: self._start_recording(a)
-            )
-            btn.pack(side=tk.RIGHT)
-            self.btn_map[act_key] = btn
+                btn = tk.Button(
+                    row, text=disp, bg="#242838", fg=accent, activebackground="#2A2D3C",
+                    activeforeground=accent, bd=1, highlightbackground="#2A2D3C",
+                    padx=8, pady=3, font=("Segoe UI", 8, "bold"), width=15,
+                    command=lambda a=act_key: self._start_recording(a)
+                )
+                btn.pack(side=tk.RIGHT)
+                self.btn_map[act_key] = btn
 
     def _build_appearance_section(self, parent):
         card = tk.Frame(parent, bg="#1A1B24", padx=14, pady=12, bd=1, highlightbackground="#2A2D3C", highlightthickness=1)

@@ -9,6 +9,10 @@ Compatible out-of-the-box with:
 - **All standard full-size keyboards with a numpad**
 - **Tenkeyless (TKL), 60%, 65%, 75%, and compact laptop keyboards** (via custom macro bindings)
 
+<p align="center">
+  <img src="assets/screenshots/desktop_hud_in_action.png" alt="Open-Volume HUD Overlay In Action" width="480" />
+</p>
+
 ---
 
 ## ✨ Features
@@ -146,6 +150,20 @@ From the Settings UI you can:
 - Choose screen positioning using the interactive **3x3 Screen Anchor Grid**.
 - Choose from **8 Handcrafted Theme Palettes** (Cyberpunk Mint, Nordic Frost, Dracula, Catppuccin Mocha, Solarized Dark, Retro Amber CRT, OLED Pure Black, Clean Minimal Light) directly from Settings or the System Tray.
 - Toggle and adjust slide & fade animations.
+
+<p align="center">
+  <img src="assets/screenshots/settings_dashboard.png" alt="Open-Volume Settings & Keybindings Dashboard" width="580" />
+</p>
+
+---
+
+## 🎨 Theme System & Color Palettes
+
+Open-Volume includes **8 handcrafted color palettes** tailored for OLED screens, gaming setups, and productivity desks. You can switch themes on the fly from the System Tray or the Settings dashboard:
+
+<p align="center">
+  <img src="assets/screenshots/themes_showcase.png" alt="Open-Volume Theme Palettes" width="680" />
+</p>
 
 ---
 

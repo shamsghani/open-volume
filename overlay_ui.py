@@ -117,6 +117,19 @@ class OverlayWidget:
         parent = user32.GetParent(inner)
         return parent if parent else inner
 
+    def _reassert_topmost(self):
+        """Re-asserts HWND_TOPMOST and SWP_NOACTIVATE to prevent full-screen games from obscuring the HUD."""
+        try:
+            hwnd = self._get_toplevel_hwnd()
+            HWND_TOPMOST = -1
+            SWP_NOMOVE = 0x0002
+            SWP_NOSIZE = 0x0001
+            SWP_NOACTIVATE = 0x0010
+            SWP_SHOWWINDOW = 0x0040
+            user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW)
+        except Exception:
+            pass
+
     def _apply_no_activate_style(self):
         """Sets WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW and WS_EX_TOPMOST so the HUD never unfocuses active games/windows."""
         try:
@@ -131,12 +144,7 @@ class OverlayWidget:
             user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new_style)
 
             # Re-assert TOPMOST & NOACTIVATE via SetWindowPos
-            HWND_TOPMOST = -1
-            SWP_NOMOVE = 0x0002
-            SWP_NOSIZE = 0x0001
-            SWP_NOACTIVATE = 0x0010
-            SWP_SHOWWINDOW = 0x0040
-            user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW)
+            self._reassert_topmost()
         except Exception as e:
             print(f"[Overlay] Error setting no-activate style: {e}")
 
@@ -263,6 +271,7 @@ class OverlayWidget:
         self.win.geometry(f"{self.width}x{self.target_h}+{cur_x}+{cur_y}")
         self.win.attributes("-alpha", cur_alpha)
         self.win.update_idletasks()
+        self._reassert_topmost()
 
         if t < 1.0:
             self.root.after(16, lambda: self._step_animate_in(token, start_time))
@@ -270,6 +279,7 @@ class OverlayWidget:
             self.anim_in_progress = False
             self.win.geometry(f"{self.width}x{self.target_h}+{self.target_x}+{self.target_y}")
             self.win.attributes("-alpha", 1.0)
+            self._apply_no_activate_style()
 
     def hide(self, animate: bool = True):
         self._cancel_live_meter()
@@ -437,6 +447,9 @@ class OverlayWidget:
         self.canvas.delete("live_vu")
         if not self.visible or not self.slider_bar_coords:
             return
+
+        # Keep HUD topmost over fullscreen game swapchains
+        self._reassert_topmost()
 
         bar_x1, bar_y1, bar_x2, bar_y2 = self.slider_bar_coords
         total_w = bar_x2 - bar_x1

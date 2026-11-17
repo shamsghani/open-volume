@@ -1,5 +1,5 @@
 {
-  "mode": "numpad",
+  "mode": "hybrid",
   "hotkey": {
     "ctrl_numlock": true,
     "double_tap_numlock": true,

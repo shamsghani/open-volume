@@ -5,6 +5,7 @@ import subprocess
 
 STARTUP_SHORTCUT_NAME = "OpenVolume.lnk"
 DESKTOP_SHORTCUT_NAME = "Open Volume.lnk"
+TASK_NAME = "OpenVolume"
 
 def get_startup_dir() -> str:
     """Returns the Windows user Startup directory."""
@@ -104,25 +105,68 @@ s.Save
                 pass
 
 def is_startup_enabled() -> bool:
-    """Checks whether the startup shortcut currently exists."""
+    """Checks whether startup is enabled via Task Scheduler (/rl highest) or Startup folder shortcut."""
+    # 1. Check Task Scheduler
+    try:
+        res = subprocess.run(["schtasks", "/query", "/tn", TASK_NAME], capture_output=True, text=True)
+        if res.returncode == 0 and TASK_NAME in res.stdout:
+            return True
+    except Exception:
+        pass
+
+    # 2. Check Startup folder shortcut
     return os.path.exists(get_startup_shortcut_path())
 
 def set_startup_enabled(enable: bool, base_dir: str = None) -> bool:
-    """Enables or disables Windows startup by creating/removing the shortcut in the Startup folder."""
+    """Enables or disables Windows startup with elevated privileges (Task Scheduler /rl highest)."""
+    if base_dir is None:
+        base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
+
     shortcut_path = get_startup_shortcut_path()
 
     if not enable:
+        # Delete scheduled task
+        try:
+            subprocess.run(["schtasks", "/delete", "/tn", TASK_NAME, "/f"], capture_output=True, text=True)
+        except Exception:
+            pass
+
+        # Delete shortcut
         if os.path.exists(shortcut_path):
             try:
                 os.remove(shortcut_path)
-                print(f"[Startup] Removed startup shortcut: {shortcut_path}")
-                return True
             except Exception as e:
                 print(f"[Startup] Failed to remove shortcut: {e}")
                 return False
+        print(f"[Startup] Disabled startup.")
         return True
 
-    # Enable startup
+    # Enable startup:
+    # 1. Try creating an elevated Task Scheduler task (/rl highest) for seamless zero-UAC boot launch
+    is_frozen = getattr(sys, "frozen", False)
+    if is_frozen:
+        tr_target = f'"{sys.executable}"'
+    else:
+        vbs_launcher = os.path.join(base_dir, "run_background.vbs")
+        wscript = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "wscript.exe")
+        tr_target = f'"{wscript}" "{vbs_launcher}"'
+
+    try:
+        cmd = ["schtasks", "/create", "/tn", TASK_NAME, "/tr", tr_target, "/sc", "onlogon", "/rl", "highest", "/f"]
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode == 0:
+            print(f"[Startup] Created elevated Task Scheduler task: {TASK_NAME}")
+            # Clean up old Startup folder shortcut if present
+            if os.path.exists(shortcut_path):
+                try:
+                    os.remove(shortcut_path)
+                except Exception:
+                    pass
+            return True
+    except Exception as e:
+        print(f"[Startup] Note: Task Scheduler returned {e}, falling back to Startup shortcut.")
+
+    # 2. Fallback to standard Startup folder shortcut
     res = _create_shortcut_lnk(shortcut_path, base_dir=base_dir, description="Open-Volume Audio Mixer Startup")
     if res:
         print(f"[Startup] Created startup shortcut: {shortcut_path}")
@@ -154,7 +198,7 @@ def remove_desktop_shortcut() -> bool:
     return True
 
 def sync_with_config(config: dict, base_dir: str = None) -> bool:
-    """Syncs the startup shortcut state with config.json behavior.start_on_boot."""
+    """Syncs the startup state with config.json behavior.start_on_boot."""
     behavior = config.get("behavior", {})
     desired = behavior.get("start_on_boot", False)
     current = is_startup_enabled()

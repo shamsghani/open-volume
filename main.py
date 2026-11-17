@@ -2,6 +2,50 @@ import ctypes
 import sys
 import os
 
+# --- Administrator Elevation for UIPI Game Bypass ---
+def is_admin() -> bool:
+    try:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+def ensure_admin_elevation():
+    """Auto-elevates the process to Administrator (High Integrity) so that
+    low-level keyboard hooks and topmost overlays work seamlessly over
+    fullscreen and elevated games without being blocked by Windows UIPI."""
+    if "--no-elevate" in sys.argv:
+        return
+    if not is_admin():
+        shell32 = ctypes.windll.shell32
+        script = os.path.abspath(sys.argv[0])
+        base_dir = os.path.dirname(script)
+        params = " ".join([f'"{arg}"' for arg in sys.argv[1:]])
+        try:
+            executable = sys.executable
+            if getattr(sys, "frozen", False):
+                cmd_target = executable
+                cmd_params = params
+                base_dir = os.path.dirname(executable)
+            else:
+                cmd_target = executable
+                cmd_params = f'"{script}" {params}'.strip()
+
+            ret = shell32.ShellExecuteW(None, "runas", cmd_target, cmd_params, base_dir, 0)
+            if ret > 32:
+                sys.exit(0)
+        except Exception as e:
+            print(f"[Elevation] Note: {e}")
+
+ensure_admin_elevation()
+
+# Ensure current working directory is the application root
+_app_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
+if _app_dir and os.path.isdir(_app_dir):
+    try:
+        os.chdir(_app_dir)
+    except Exception:
+        pass
+
 # --- Single Instance Enforcement via Named Mutex ---
 MUTEX_NAME = "Local\\MountainEverest60_NumpadAudioLayer_SingleInstance"
 kernel32 = ctypes.windll.kernel32

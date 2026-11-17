@@ -72,13 +72,15 @@ class TestAudioMixer(unittest.TestCase):
 
     def test_06_pinned_apps_ordering(self):
         from audio_mixer import AudioMixer
-        mixer = AudioMixer(pinned_apps=["Spotify", "Discord"])
-        apps = mixer.get_apps()
+        apps = self.mixer.get_apps()
         if len(apps) >= 3:
             self.assertTrue(apps[0]['is_master'])
-            names = [a['name'].lower() for a in apps[1:3]]
-            self.assertTrue(any('spotify' in n or 'discord' in n for n in names))
-            print("  [PASS] Pinned apps prioritized ordering verified.")
+            # Pin the last app and verify it moves immediately after Master
+            target_pin = apps[-1]['name']
+            mixer_pinned = AudioMixer(pinned_apps=[target_pin])
+            reordered = mixer_pinned.get_apps()
+            self.assertEqual(reordered[1]['name'], target_pin)
+            print(f"  [PASS] Pinned app ({target_pin}) prioritized ordering verified.")
 
     def test_07_microphone_info(self):
         mic = self.mixer.get_microphone_info()

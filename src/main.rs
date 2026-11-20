@@ -187,6 +187,8 @@ fn handle_app_action(action: AppAction) {
             None => return,
         };
 
+        let sound_enabled = state.config.lock().unwrap().volume.sound_feedback;
+
         match action {
             AppAction::LayerEnter => {
                 {
@@ -201,62 +203,66 @@ fn handle_app_action(action: AppAction) {
                 if let Some(ref mut tray) = state.tray {
                     tray.set_active_state(true);
                 }
-                sound::play_layer_on();
+                if sound_enabled { sound::play_layer_on(); }
             }
             AppAction::LayerExit => {
                 state.overlay.hide();
                 if let Some(ref mut tray) = state.tray {
                     tray.set_active_state(false);
                 }
-                sound::play_layer_off();
+                if sound_enabled { sound::play_layer_off(); }
             }
             AppAction::VolumeUp(step) => {
                 state.mixer.lock().unwrap().adjust_volume(step);
                 state.overlay.update_display();
-                sound::play_volume_tick();
+                if sound_enabled { sound::play_volume_up(); }
             }
             AppAction::VolumeDown(step) => {
                 state.mixer.lock().unwrap().adjust_volume(-step);
                 state.overlay.update_display();
-                sound::play_volume_tick();
+                if sound_enabled { sound::play_volume_down(); }
             }
             AppAction::SelectNext => {
                 state.mixer.lock().unwrap().select_next();
                 state.overlay.update_display();
-                sound::play_volume_tick();
+                if sound_enabled { sound::play_cycle(); }
             }
             AppAction::SelectPrev => {
                 state.mixer.lock().unwrap().select_prev();
                 state.overlay.update_display();
-                sound::play_volume_tick();
+                if sound_enabled { sound::play_cycle(); }
             }
             AppAction::ToggleMute => {
                 state.mixer.lock().unwrap().toggle_mute();
                 state.overlay.update_display();
-                sound::play_volume_tick();
+                if sound_enabled { sound::play_mute(); }
             }
             AppAction::SelectIndex(idx) => {
                 state.mixer.lock().unwrap().select_index(idx);
                 state.overlay.update_display();
-                sound::play_volume_tick();
+                if sound_enabled { sound::play_cycle(); }
             }
             AppAction::ToggleMicMute => {
                 let muted = state.mixer.lock().unwrap().toggle_microphone_mute();
                 let msg = if muted { "Microphone MUTED" } else { "Microphone LIVE" };
                 state.overlay.show_toast(msg, "🎙️");
                 state.overlay.update_display();
+                if sound_enabled { sound::play_mute(); }
             }
             AppAction::PlayPause => {
                 simulate_media_key(VK_MEDIA_PLAY_PAUSE);
                 state.overlay.show_toast("Play / Pause", "⏯");
+                if sound_enabled { sound::play_cycle(); }
             }
             AppAction::NextTrack => {
                 simulate_media_key(VK_MEDIA_NEXT_TRACK);
                 state.overlay.show_toast("Next Track", "⏭");
+                if sound_enabled { sound::play_cycle(); }
             }
             AppAction::PrevTrack => {
                 simulate_media_key(VK_MEDIA_PREV_TRACK);
                 state.overlay.show_toast("Previous Track", "⏮");
+                if sound_enabled { sound::play_cycle(); }
             }
         }
     }

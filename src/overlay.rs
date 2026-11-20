@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use windows::core::*;
 use windows::Win32::Foundation::*;
+use windows::Win32::Graphics::Dwm::*;
 use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
@@ -126,6 +127,23 @@ impl OverlayWindow {
         }
     }
 
+    pub fn apply_rounded_corners(&self, width: i32, height: i32) {
+        unsafe {
+            let rgn = CreateRoundRectRgn(0, 0, width + 1, height + 1, 20, 20);
+            if !rgn.0.is_null() {
+                SetWindowRgn(self.hwnd, rgn, true);
+            }
+
+            let preference: u32 = 2; // DWMWCP_ROUND
+            let _ = DwmSetWindowAttribute(
+                self.hwnd,
+                DWMWA_WINDOW_CORNER_PREFERENCE,
+                &preference as *const _ as *const _,
+                std::mem::size_of::<u32>() as u32,
+            );
+        }
+    }
+
     pub fn calculate_position(&mut self, height: i32) -> (i32, i32, i32, i32) {
         let (work_w, work_h, work_left, work_top) = get_primary_work_area();
         let cfg = self.config.lock().unwrap();
@@ -195,6 +213,7 @@ impl OverlayWindow {
                     height,
                     SWP_NOACTIVATE | SWP_SHOWWINDOW,
                 );
+                self.apply_rounded_corners(width, height);
                 let _ = SetLayeredWindowAttributes(self.hwnd, COLORREF(0), 255, LWA_ALPHA);
                 let _ = InvalidateRect(self.hwnd, None, false);
             } else {
@@ -211,6 +230,7 @@ impl OverlayWindow {
                     height,
                     SWP_NOACTIVATE | SWP_SHOWWINDOW,
                 );
+                self.apply_rounded_corners(width, height);
                 let _ = SetLayeredWindowAttributes(self.hwnd, COLORREF(0), 12, LWA_ALPHA);
                 let _ = SetTimer(self.hwnd, TIMER_ANIM_ID, 16, None);
             }
@@ -236,10 +256,46 @@ impl OverlayWindow {
         self.toast_text = Some(text.to_string());
         self.toast_icon = icon.to_string();
         self.toast_time = Instant::now();
+        self.last_activity = Instant::now();
         if self.visible {
+            self.recalc_height_and_reposition();
             unsafe {
                 let _ = InvalidateRect(self.hwnd, None, false);
             }
+        } else {
+            self.show();
+        }
+    }
+
+    pub fn recalc_height_and_reposition(&mut self) {
+        let (list_len, has_toast) = {
+            let mixer = self.mixer.lock().unwrap();
+            let toast_active = self.toast_text.is_some() && self.toast_time.elapsed() < Duration::from_millis(2200);
+            (mixer.get_apps().len(), toast_active)
+        };
+
+        let max_visible = self.config.lock().unwrap().appearance.max_visible_apps;
+        let list_count = list_len.min(max_visible);
+        let extra_h = if has_toast { 34 } else { 0 };
+        let height = 56 + 98 + (list_count as i32 * 32) + 40 + extra_h;
+        let width = self.config.lock().unwrap().appearance.width;
+
+        let (x, y, _, _) = self.calculate_position(height);
+        self.target_x = x;
+        self.target_y = y;
+        self.target_h = height;
+
+        unsafe {
+            let _ = SetWindowPos(
+                self.hwnd,
+                HWND_TOPMOST,
+                x,
+                y,
+                width,
+                height,
+                SWP_NOACTIVATE | SWP_NOZORDER,
+            );
+            self.apply_rounded_corners(width, height);
         }
     }
 
@@ -424,6 +480,26 @@ impl OverlayWindow {
 
             y += 24;
 
+            // 2.5 Toast Notification (Placed between Header and Active Card so it never overlaps!)
+            if let Some(ref toast) = self.toast_text {
+                if self.toast_time.elapsed() < Duration::from_millis(2200) {
+                    let toast_brush = CreateSolidBrush(COLORREF(sel_col));
+                    let toast_pen = CreatePen(PS_SOLID, 1, COLORREF(accent_col));
+                    SelectObject(mem_dc, toast_brush);
+                    SelectObject(mem_dc, toast_pen);
+                    RoundRect(mem_dc, 16, y, width - 16, y + 26, 8, 8);
+                    DeleteObject(toast_brush);
+                    DeleteObject(toast_pen);
+
+                    SelectObject(mem_dc, font_bold);
+                    SetTextColor(mem_dc, COLORREF(accent_col));
+                    let toast_str = format!("{}  {}", self.toast_icon, toast);
+                    draw_text(mem_dc, &toast_str, 24, y + 4, width - 48, 18);
+
+                    y += 34;
+                }
+            }
+
             // 3. Active App Card
             let (sel_app, apps_snapshot, sel_idx) = {
                 let mixer = self.mixer.lock().unwrap();
@@ -558,26 +634,6 @@ impl OverlayWindow {
                 }
 
                 y += 32;
-            }
-
-            // 5. Toast Notification (if active)
-            if let Some(ref toast) = self.toast_text {
-                if self.toast_time.elapsed() < Duration::from_secs(3) {
-                    let toast_brush = CreateSolidBrush(COLORREF(card_col));
-                    let toast_pen = CreatePen(PS_SOLID, 1, COLORREF(accent_col));
-                    SelectObject(mem_dc, toast_brush);
-                    SelectObject(mem_dc, toast_pen);
-                    RoundRect(mem_dc, 18, y, width - 18, y + 26, 8, 8);
-                    DeleteObject(toast_brush);
-                    DeleteObject(toast_pen);
-
-                    SelectObject(mem_dc, font_bold);
-                    SetTextColor(mem_dc, COLORREF(accent_col));
-                    let toast_str = format!("{} {}", self.toast_icon, toast);
-                    draw_text(mem_dc, &toast_str, 28, y + 3, width - 40, 20);
-
-                    y += 32;
-                }
             }
 
             // 6. Footer Controls Hint

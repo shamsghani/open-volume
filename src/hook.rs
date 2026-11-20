@@ -148,10 +148,21 @@ unsafe extern "system" fn low_level_keyboard_proc(
             _ => {}
         }
 
-        let ctrl = CTRL_DOWN.load(Ordering::SeqCst);
-        let alt = ALT_DOWN.load(Ordering::SeqCst);
-        let shift = SHIFT_DOWN.load(Ordering::SeqCst);
-        let win = WIN_DOWN.load(Ordering::SeqCst);
+        let ctrl = CTRL_DOWN.load(Ordering::SeqCst)
+            || unsafe { (GetAsyncKeyState(VK_CONTROL.0 as i32) as u16 & 0x8000) != 0 }
+            || unsafe { (GetAsyncKeyState(VK_LCONTROL.0 as i32) as u16 & 0x8000) != 0 }
+            || unsafe { (GetAsyncKeyState(VK_RCONTROL.0 as i32) as u16 & 0x8000) != 0 };
+        let alt = ALT_DOWN.load(Ordering::SeqCst)
+            || unsafe { (GetAsyncKeyState(VK_MENU.0 as i32) as u16 & 0x8000) != 0 }
+            || unsafe { (GetAsyncKeyState(VK_LMENU.0 as i32) as u16 & 0x8000) != 0 }
+            || unsafe { (GetAsyncKeyState(VK_RMENU.0 as i32) as u16 & 0x8000) != 0 };
+        let shift = SHIFT_DOWN.load(Ordering::SeqCst)
+            || unsafe { (GetAsyncKeyState(VK_SHIFT.0 as i32) as u16 & 0x8000) != 0 }
+            || unsafe { (GetAsyncKeyState(VK_LSHIFT.0 as i32) as u16 & 0x8000) != 0 }
+            || unsafe { (GetAsyncKeyState(VK_RSHIFT.0 as i32) as u16 & 0x8000) != 0 };
+        let win = WIN_DOWN.load(Ordering::SeqCst)
+            || unsafe { (GetAsyncKeyState(VK_LWIN.0 as i32) as u16 & 0x8000) != 0 }
+            || unsafe { (GetAsyncKeyState(VK_RWIN.0 as i32) as u16 & 0x8000) != 0 };
         let active = LAYER_ACTIVE.load(Ordering::SeqCst);
 
         let cfg = CONFIG_CACHE.lock().unwrap().clone().unwrap_or_default();
@@ -179,9 +190,9 @@ unsafe extern "system" fn low_level_keyboard_proc(
             }
         }
 
-        // 2. Check NumLock triggers
-        if vk == VK_NUMLOCK.0 as u32 && is_down {
-            // A. Ctrl + NumLock
+        // 2. Check Numpad triggers (Ctrl + NumLock, Double-tap NumLock, Ctrl + Numpad *)
+        if (vk == VK_NUMLOCK.0 as u32 || (ctrl && vk == VK_MULTIPLY.0 as u32)) && is_down {
+            // A. Ctrl + NumLock or Ctrl + Numpad *
             if ctrl && cfg.hotkey.ctrl_numlock {
                 if active {
                     LAYER_ACTIVE.store(false, Ordering::SeqCst);
@@ -194,7 +205,7 @@ unsafe extern "system" fn low_level_keyboard_proc(
             }
 
             // B. Double-tap NumLock
-            if cfg.hotkey.double_tap_numlock {
+            if vk == VK_NUMLOCK.0 as u32 && cfg.hotkey.double_tap_numlock {
                 let now = Instant::now();
                 let mut last = LAST_NUMLOCK_TIME.lock().unwrap();
                 if let Some(prev) = *last {
@@ -213,8 +224,8 @@ unsafe extern "system" fn low_level_keyboard_proc(
                 *last = Some(now);
             }
 
-            // If already in Layer 2, pressing NumLock exits Layer 2
-            if active {
+            // If already in Layer 2, a single press of NumLock exits Layer 2
+            if active && vk == VK_NUMLOCK.0 as u32 {
                 LAYER_ACTIVE.store(false, Ordering::SeqCst);
                 dispatch(AppAction::LayerExit);
                 return LRESULT(1);
@@ -229,9 +240,9 @@ unsafe extern "system" fn low_level_keyboard_proc(
                     // Main Enter! Never block! Pass through transparently to games and apps!
                     return CallNextHookEx(HOOK_HANDLE, n_code, w_param, l_param);
                 }
-                // Numpad Enter: consume or toggle
+                // Numpad Enter: Toggle Mute
                 if is_down {
-                    dispatch(AppAction::SelectNext);
+                    dispatch(AppAction::ToggleMute);
                 }
                 return LRESULT(1);
             }
@@ -262,49 +273,48 @@ unsafe extern "system" fn low_level_keyboard_proc(
             }
 
             // Microphone mute toggle
-            if (vk == VK_DECIMAL.0 as u32 || vk == 0x4D && ctrl && alt) && is_down {
+            if (vk == VK_DECIMAL.0 as u32 || (vk == 0x4D && ctrl && alt)) && is_down {
                 dispatch(AppAction::ToggleMicMute);
                 return LRESULT(1);
             }
 
             // Volume controls
             if vk == VK_ADD.0 as u32 { // Numpad +
-                if is_down { dispatch(AppAction::VolumeUp(step)); }
+                let vstep = if shift { fine_step } else { step };
+                if is_down { dispatch(AppAction::VolumeUp(vstep)); }
                 return LRESULT(1);
             }
             if vk == VK_SUBTRACT.0 as u32 { // Numpad -
-                if is_down { dispatch(AppAction::VolumeDown(step)); }
-                return LRESULT(1);
-            }
-            if vk == VK_MULTIPLY.0 as u32 { // Numpad * (fine up)
-                if is_down { dispatch(AppAction::VolumeUp(fine_step)); }
-                return LRESULT(1);
-            }
-            if vk == VK_DIVIDE.0 as u32 { // Numpad / (fine down)
-                if is_down { dispatch(AppAction::VolumeDown(fine_step)); }
+                let vstep = if shift { fine_step } else { step };
+                if is_down { dispatch(AppAction::VolumeDown(vstep)); }
                 return LRESULT(1);
             }
 
-            // App cycling
-            if vk == VK_NUMPAD8.0 as u32 || vk == VK_UP.0 as u32 {
+            // App navigation & cycling:
+            // 8 / 4 / / (Numpad Divide) / Left / Up -> SelectPrev
+            if vk == VK_NUMPAD8.0 as u32
+                || vk == VK_NUMPAD4.0 as u32
+                || vk == VK_DIVIDE.0 as u32
+                || vk == VK_LEFT.0 as u32
+                || vk == VK_UP.0 as u32
+            {
                 if is_down { dispatch(AppAction::SelectPrev); }
                 return LRESULT(1);
             }
-            if vk == VK_NUMPAD2.0 as u32 || vk == VK_DOWN.0 as u32 {
-                if is_down { dispatch(AppAction::SelectNext); }
-                return LRESULT(1);
-            }
-            if vk == VK_NUMPAD4.0 as u32 || vk == VK_LEFT.0 as u32 {
-                if is_down { dispatch(AppAction::SelectPrev); }
-                return LRESULT(1);
-            }
-            if vk == VK_NUMPAD6.0 as u32 || vk == VK_RIGHT.0 as u32 {
+
+            // 2 / 6 / * (Numpad Multiply) / Right / Down -> SelectNext
+            if vk == VK_NUMPAD2.0 as u32
+                || vk == VK_NUMPAD6.0 as u32
+                || vk == VK_MULTIPLY.0 as u32
+                || vk == VK_RIGHT.0 as u32
+                || vk == VK_DOWN.0 as u32
+            {
                 if is_down { dispatch(AppAction::SelectNext); }
                 return LRESULT(1);
             }
 
             // Mute toggle (Numpad 5 or 'M')
-            if vk == VK_NUMPAD5.0 as u32 || vk == 0x4D && !ctrl && !alt {
+            if vk == VK_NUMPAD5.0 as u32 || (vk == 0x4D && !ctrl && !alt) {
                 if is_down { dispatch(AppAction::ToggleMute); }
                 return LRESULT(1);
             }

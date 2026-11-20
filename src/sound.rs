@@ -1,39 +1,43 @@
-use std::path::PathBuf;
 use windows::core::*;
 use windows::Win32::Media::Audio::*;
 
-fn get_sound_path(filename: &str) -> PathBuf {
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            let p = dir.join("assets").join("sounds").join(filename);
-            if p.exists() {
-                return p;
-            }
-        }
-    }
-    PathBuf::from("assets").join("sounds").join(filename)
-}
+const SOUND_ENTER: &[u8] = include_bytes!("../assets/sounds/womp_enter.wav");
+const SOUND_EXIT: &[u8] = include_bytes!("../assets/sounds/womp_exit.wav");
+const SOUND_UP: &[u8] = include_bytes!("../assets/sounds/womp_up.wav");
+const SOUND_DOWN: &[u8] = include_bytes!("../assets/sounds/womp_down.wav");
+const SOUND_CYCLE: &[u8] = include_bytes!("../assets/sounds/womp_cycle.wav");
+const SOUND_MUTE: &[u8] = include_bytes!("../assets/sounds/womp_mute.wav");
 
 pub fn play_layer_on() {
-    play_wav("layer_on.wav");
+    play_memory(SOUND_ENTER);
 }
 
 pub fn play_layer_off() {
-    play_wav("layer_off.wav");
+    play_memory(SOUND_EXIT);
 }
 
-pub fn play_volume_tick() {
-    play_wav("tick.wav");
+pub fn play_volume_up() {
+    play_memory(SOUND_UP);
 }
 
-fn play_wav(filename: &str) {
-    let path = get_sound_path(filename);
-    if path.exists() {
-        if let Some(s) = path.to_str() {
-            let hstr = HSTRING::from(s);
-            unsafe {
-                let _ = PlaySoundW(PCWSTR(hstr.as_ptr()), None, SND_FILENAME | SND_ASYNC);
-            }
-        }
+pub fn play_volume_down() {
+    play_memory(SOUND_DOWN);
+}
+
+pub fn play_cycle() {
+    play_memory(SOUND_CYCLE);
+}
+
+pub fn play_mute() {
+    play_memory(SOUND_MUTE);
+}
+
+fn play_memory(bytes: &'static [u8]) {
+    unsafe {
+        let _ = PlaySoundW(
+            PCWSTR(bytes.as_ptr() as *const u16),
+            None,
+            SND_MEMORY | SND_ASYNC | SND_NODEFAULT,
+        );
     }
 }

@@ -1,11 +1,11 @@
-# Open-Volume / Mountain Everest Numpad Audio Layer 2
+# Open-Volume /Audio Layer 2
 
 A lightweight, high-performance background utility that turns your **numpad or any keyboard** into a dedicated **Layer 2 Audio Mixer & Macropad**.
 
 With a simple hotkey, your keyboard enters a secondary control layer and displays an elegant, system-wide HUD widget. In this mode, you can cycle through open audio applications (and Windows Master volume), adjust individual app volumes with `+` and `-` (or arrow keys), and instantly mute with `5`, `M`, or `Enter`.
 
 Compatible out-of-the-box with:
-- **Mountain Everest 60 modular numpad**
+- **Mountain Everest 60 modular numpad** (Thats what I have)
 - **All standard full-size keyboards with a numpad**
 - **Tenkeyless (TKL), 60%, 65%, 75%, and compact laptop keyboards** (via custom macro bindings)
 

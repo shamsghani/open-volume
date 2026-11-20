@@ -55,8 +55,16 @@ def _create_shortcut_lnk(dest_path: str, base_dir: str = None, description: str 
 
     os.makedirs(os.path.dirname(os.path.abspath(dest_path)), exist_ok=True)
     is_frozen = getattr(sys, "frozen", False)
+    rust_exe = os.path.join(base_dir, "target", "release", "open-volume.exe")
 
-    if is_frozen:
+    if os.path.exists(rust_exe):
+        target_path = rust_exe
+        arguments_vbs = '""'
+        working_dir = base_dir
+        icon_path = os.path.join(base_dir, "assets", "icon.ico")
+        if not os.path.exists(icon_path):
+            icon_path = target_path
+    elif is_frozen:
         target_path = sys.executable
         arguments_vbs = '""'
         working_dir = os.path.dirname(sys.executable)
@@ -144,7 +152,10 @@ def set_startup_enabled(enable: bool, base_dir: str = None) -> bool:
     # Enable startup:
     # 1. Try creating an elevated Task Scheduler task (/rl highest) for seamless zero-UAC boot launch
     is_frozen = getattr(sys, "frozen", False)
-    if is_frozen:
+    rust_exe = os.path.join(base_dir, "target", "release", "open-volume.exe")
+    if os.path.exists(rust_exe):
+        tr_target = f'"{rust_exe}"'
+    elif is_frozen:
         tr_target = f'"{sys.executable}"'
     else:
         vbs_launcher = os.path.join(base_dir, "run_background.vbs")

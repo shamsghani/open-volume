@@ -35,3 +35,8 @@ widget_crop.png
 Thumbs.db
 desktop.ini
 
+# Rust build artifacts
+target/
+*.pdb
+
+

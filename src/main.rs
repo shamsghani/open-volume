@@ -1,0 +1,357 @@
+#![windows_subsystem = "windows"]
+#![allow(unused_must_use, dead_code, static_mut_refs, unused_assignments)]
+
+mod audio;
+mod config;
+mod hook;
+mod overlay;
+mod settings;
+mod sound;
+mod startup;
+mod tray;
+
+use audio::AudioMixer;
+use config::{list_themes, Config};
+use hook::{decode_action, AppAction, KeyboardHook, WM_APP_ACTION};
+use overlay::OverlayWindow;
+use settings::SettingsWindow;
+use startup::ensure_admin_elevation;
+use std::sync::{Arc, Mutex};
+use tray::{
+    TrayIcon, ID_TRAY_EXIT, ID_TRAY_MUTE_MIC, ID_TRAY_POS_BASE, ID_TRAY_PROFILE_BASE,
+    ID_TRAY_SETTINGS, ID_TRAY_SHORTCUT, ID_TRAY_STARTUP, ID_TRAY_THEME_BASE,
+    ID_TRAY_TOGGLE_LAYER, WM_APP_TRAY,
+};
+use windows::core::*;
+use windows::Win32::Foundation::*;
+use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows::Win32::System::StationsAndDesktops::*;
+use windows::Win32::System::Threading::*;
+use windows::Win32::UI::Input::KeyboardAndMouse::*;
+use windows::Win32::UI::WindowsAndMessaging::*;
+
+const MUTEX_NAME: PCWSTR = w!("Local\\MountainEverest60_NumpadAudioLayer_SingleInstance");
+
+struct AppState {
+    config: Arc<Mutex<Config>>,
+    mixer: Arc<Mutex<AudioMixer>>,
+    overlay: Box<OverlayWindow>,
+    settings: Box<SettingsWindow>,
+    tray: Option<TrayIcon>,
+}
+
+static mut APP_STATE: Option<AppState> = None;
+
+fn main() {
+    // 1. Silent Administrator Elevation Check (to bypass UIPI over games like Tiny Glade)
+    ensure_admin_elevation();
+
+    // 2. Single-Instance Enforcement via Named Mutex
+    unsafe {
+        let _ = CreateMutexW(None, false, MUTEX_NAME);
+        if GetLastError() == ERROR_ALREADY_EXISTS {
+            std::process::exit(0);
+        }
+
+        // Attach to default interactive desktop
+        let hdesk = OpenDesktopW(w!("Default"), DESKTOP_CONTROL_FLAGS(0), false, 0x01FF);
+        if let Ok(hd) = hdesk {
+            let _ = SetThreadDesktop(hd);
+        }
+    }
+
+    // 3. Load Configuration
+    let config = Arc::new(Mutex::new(Config::load()));
+    let (perceptual, pinned) = {
+        let cfg = config.lock().unwrap();
+        (cfg.volume.perceptual_curve, cfg.pinned_apps.clone())
+    };
+
+    // 4. Initialize Core Audio Mixer
+    let mixer = Arc::new(Mutex::new(AudioMixer::new(perceptual, pinned)));
+
+    // 5. Create Hidden Message Receiver Window
+    let main_hwnd = create_message_window();
+
+    // 6. Create HUD Overlay & Settings Windows
+    let overlay = OverlayWindow::new(Arc::clone(&config), Arc::clone(&mixer));
+    let settings = SettingsWindow::new(Arc::clone(&config));
+
+    // 7. Create System Tray Icon
+    let tray = TrayIcon::new(main_hwnd, Arc::clone(&config));
+
+    unsafe {
+        APP_STATE = Some(AppState {
+            config: Arc::clone(&config),
+            mixer: Arc::clone(&mixer),
+            overlay,
+            settings,
+            tray: Some(tray),
+        });
+    }
+
+    // 8. Install Low-Level Keyboard Hook
+    let initial_cfg = config.lock().unwrap().clone();
+    KeyboardHook::install(main_hwnd, initial_cfg);
+
+    // 9. Main Win32 Event Loop
+    unsafe {
+        let mut msg = MSG::default();
+        while GetMessageW(&mut msg, None, 0, 0).as_bool() {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    }
+
+    // Clean up
+    KeyboardHook::uninstall();
+}
+
+fn create_message_window() -> HWND {
+    unsafe {
+        let hinst: HINSTANCE = GetModuleHandleW(None).unwrap_or_default().into();
+        let class_name = w!("OpenVolumeMainMsgClass");
+        let wnd_class = WNDCLASSEXW {
+            cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+            lpfnWndProc: Some(main_wnd_proc),
+            hInstance: hinst,
+            lpszClassName: PCWSTR(class_name.as_ptr()),
+            ..Default::default()
+        };
+
+        RegisterClassExW(&wnd_class);
+
+        CreateWindowExW(
+            WINDOW_EX_STYLE(0),
+            PCWSTR(class_name.as_ptr()),
+            w!("OpenVolumeMainMsgReceiver"),
+            WS_OVERLAPPED,
+            0,
+            0,
+            0,
+            0,
+            HWND_MESSAGE,
+            None,
+            hinst,
+            None,
+        ).unwrap_or(HWND(std::ptr::null_mut()))
+    }
+}
+
+unsafe extern "system" fn main_wnd_proc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
+    match msg {
+        WM_APP_ACTION => {
+            if let Some(action) = decode_action(wparam) {
+                handle_app_action(action);
+            }
+            LRESULT(0)
+        }
+        WM_APP_TRAY => {
+            let event = lparam.0 as u32;
+            if event == WM_RBUTTONUP || event == WM_CONTEXTMENU {
+                if let Some(ref mut state) = APP_STATE {
+                    let mic_muted = state.mixer.lock().unwrap().get_microphone_info().2;
+                    if let Some(ref tray) = state.tray {
+                        tray.show_menu(KeyboardHook::is_layer_active(), mic_muted);
+                    }
+                }
+            } else if event == WM_LBUTTONUP {
+                let cur = KeyboardHook::is_layer_active();
+                KeyboardHook::set_layer_active(!cur);
+                handle_app_action(if !cur { AppAction::LayerEnter } else { AppAction::LayerExit });
+            }
+            LRESULT(0)
+        }
+        WM_COMMAND => {
+            let cmd_id = (wparam.0 & 0xFFFF) as u32;
+            handle_tray_command(cmd_id);
+            LRESULT(0)
+        }
+        WM_DESTROY => {
+            PostQuitMessage(0);
+            LRESULT(0)
+        }
+        _ => DefWindowProcW(hwnd, msg, wparam, lparam),
+    }
+}
+
+fn handle_app_action(action: AppAction) {
+    unsafe {
+        let state = match APP_STATE.as_mut() {
+            Some(s) => s,
+            None => return,
+        };
+
+        match action {
+            AppAction::LayerEnter => {
+                {
+                    let mut mixer = state.mixer.lock().unwrap();
+                    mixer.refresh();
+                    let follow = state.config.lock().unwrap().behavior.follow_focus;
+                    if follow {
+                        mixer.auto_select_foreground_app();
+                    }
+                }
+                state.overlay.show();
+                if let Some(ref mut tray) = state.tray {
+                    tray.set_active_state(true);
+                }
+                sound::play_layer_on();
+            }
+            AppAction::LayerExit => {
+                state.overlay.hide();
+                if let Some(ref mut tray) = state.tray {
+                    tray.set_active_state(false);
+                }
+                sound::play_layer_off();
+            }
+            AppAction::VolumeUp(step) => {
+                state.mixer.lock().unwrap().adjust_volume(step);
+                state.overlay.update_display();
+                sound::play_volume_tick();
+            }
+            AppAction::VolumeDown(step) => {
+                state.mixer.lock().unwrap().adjust_volume(-step);
+                state.overlay.update_display();
+                sound::play_volume_tick();
+            }
+            AppAction::SelectNext => {
+                state.mixer.lock().unwrap().select_next();
+                state.overlay.update_display();
+                sound::play_volume_tick();
+            }
+            AppAction::SelectPrev => {
+                state.mixer.lock().unwrap().select_prev();
+                state.overlay.update_display();
+                sound::play_volume_tick();
+            }
+            AppAction::ToggleMute => {
+                state.mixer.lock().unwrap().toggle_mute();
+                state.overlay.update_display();
+                sound::play_volume_tick();
+            }
+            AppAction::SelectIndex(idx) => {
+                state.mixer.lock().unwrap().select_index(idx);
+                state.overlay.update_display();
+                sound::play_volume_tick();
+            }
+            AppAction::ToggleMicMute => {
+                let muted = state.mixer.lock().unwrap().toggle_microphone_mute();
+                let msg = if muted { "Microphone MUTED" } else { "Microphone LIVE" };
+                state.overlay.show_toast(msg, "🎙️");
+                state.overlay.update_display();
+            }
+            AppAction::PlayPause => {
+                simulate_media_key(VK_MEDIA_PLAY_PAUSE);
+                state.overlay.show_toast("Play / Pause", "⏯");
+            }
+            AppAction::NextTrack => {
+                simulate_media_key(VK_MEDIA_NEXT_TRACK);
+                state.overlay.show_toast("Next Track", "⏭");
+            }
+            AppAction::PrevTrack => {
+                simulate_media_key(VK_MEDIA_PREV_TRACK);
+                state.overlay.show_toast("Previous Track", "⏮");
+            }
+        }
+    }
+}
+
+fn simulate_media_key(vk: VIRTUAL_KEY) {
+    unsafe {
+        keybd_event(vk.0 as u8, 0, KEYBD_EVENT_FLAGS(0), 0);
+        keybd_event(vk.0 as u8, 0, KEYEVENTF_KEYUP, 0);
+    }
+}
+
+fn handle_tray_command(cmd_id: u32) {
+    unsafe {
+        let state = match APP_STATE.as_mut() {
+            Some(s) => s,
+            None => return,
+        };
+
+        match cmd_id {
+            ID_TRAY_TOGGLE_LAYER => {
+                let cur = KeyboardHook::is_layer_active();
+                KeyboardHook::set_layer_active(!cur);
+                handle_app_action(if !cur { AppAction::LayerEnter } else { AppAction::LayerExit });
+            }
+            ID_TRAY_MUTE_MIC => {
+                handle_app_action(AppAction::ToggleMicMute);
+            }
+            ID_TRAY_SETTINGS => {
+                state.settings.show();
+            }
+            ID_TRAY_STARTUP => {
+                let cur = startup::is_startup_enabled();
+                let _ = startup::set_startup_enabled(!cur);
+                state.config.lock().unwrap().behavior.start_on_boot = !cur;
+                state.config.lock().unwrap().save();
+            }
+            ID_TRAY_SHORTCUT => {
+                startup::create_desktop_shortcut();
+            }
+            ID_TRAY_EXIT => {
+                PostQuitMessage(0);
+            }
+            ID_TRAY_THEME_BASE..=2015 => {
+                let idx = (cmd_id - ID_TRAY_THEME_BASE) as usize;
+                let themes = list_themes();
+                if let Some(t) = themes.get(idx) {
+                    let mut cfg = state.config.lock().unwrap();
+                    cfg.apply_theme(&t.id);
+                    cfg.save();
+                    state.overlay.update_display();
+                }
+            }
+            ID_TRAY_PROFILE_BASE..=3005 => {
+                let idx = cmd_id - ID_TRAY_PROFILE_BASE;
+                let pkey = match idx {
+                    0 => "gaming",
+                    1 => "focus",
+                    2 => "cinema",
+                    _ => "",
+                };
+                if !pkey.is_empty() {
+                    let (prof, name, emoji) = {
+                        let cfg = state.config.lock().unwrap();
+                        let p = cfg.profiles.get(pkey).cloned();
+                        match p {
+                            Some(prof) => (Some(prof.clone()), prof.name, prof.emoji),
+                            None => (None, String::new(), String::new()),
+                        }
+                    };
+                    if let Some(p) = prof {
+                        state.mixer.lock().unwrap().apply_profile(&p);
+                        let toast = format!("Profile: {}", name);
+                        state.overlay.show_toast(&toast, &emoji);
+                        state.overlay.update_display();
+                    }
+                }
+            }
+            ID_TRAY_POS_BASE..=4005 => {
+                let idx = cmd_id - ID_TRAY_POS_BASE;
+                let pos = match idx {
+                    0 => "bottom-right",
+                    1 => "top-center",
+                    2 => "top-right",
+                    3 => "bottom-center",
+                    _ => "",
+                };
+                if !pos.is_empty() {
+                    let mut cfg = state.config.lock().unwrap();
+                    cfg.appearance.position = pos.to_string();
+                    cfg.save();
+                    state.overlay.update_display();
+                }
+            }
+            _ => {}
+        }
+    }
+}

@@ -1,17 +1,17 @@
 @echo off
-title Mountain Everest Numpad Audio Layer 2
+title Open-Volume Audio Mixer
 cd /d "%~dp0"
 
 echo =======================================================
-echo    Mountain Everest 60 - Numpad Audio Layer 2
+echo    Open-Volume : High-Performance Audio Layer 2 (Rust)
 echo =======================================================
 echo.
-echo Starting Numpad Audio Layer controller...
-python main.py
-
-if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo Application exited with error code %ERRORLEVEL%.
-    pause
+if exist "target\release\open-volume.exe" (
+    echo Starting native Rust Open-Volume...
+    start "" "target\release\open-volume.exe"
+) else (
+    echo Building and running native Rust Open-Volume...
+    cargo run --release
 )
+
 

@@ -1,0 +1,42 @@
+[package]
+name = "open-volume"
+version = "2.0.0"
+edition = "2021"
+authors = ["Shams Ghani"]
+description = "High-performance native Windows audio mixer, HUD overlay, and macropad controller in Rust"
+
+[lib]
+name = "open_volume"
+path = "src/lib.rs"
+
+[[bin]]
+name = "open-volume"
+path = "src/main.rs"
+
+[dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+    "Win32_Graphics_Gdi",
+    "Win32_Media_Audio",
+    "Win32_Media_Audio_Endpoints",
+    "Win32_System_Com",
+    "Win32_System_Threading",
+    "Win32_System_ProcessStatus",
+    "Win32_System_LibraryLoader",
+    "Win32_System_StationsAndDesktops",
+    "Win32_Security",
+    "Win32_Media"
+] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

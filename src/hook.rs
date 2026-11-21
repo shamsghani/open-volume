@@ -1,7 +1,7 @@
 use crate::config::Config;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use windows::Win32::Foundation::*;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
@@ -28,6 +28,8 @@ static CTRL_DOWN: AtomicBool = AtomicBool::new(false);
 static ALT_DOWN: AtomicBool = AtomicBool::new(false);
 static SHIFT_DOWN: AtomicBool = AtomicBool::new(false);
 static WIN_DOWN: AtomicBool = AtomicBool::new(false);
+static NUMLOCK_IS_DOWN: AtomicBool = AtomicBool::new(false);
+static MULTIPLY_IS_DOWN: AtomicBool = AtomicBool::new(false);
 
 static mut HOOK_HANDLE: HHOOK = HHOOK(std::ptr::null_mut());
 static mut MAIN_HWND: HWND = HWND(std::ptr::null_mut());
@@ -139,6 +141,15 @@ unsafe extern "system" fn low_level_keyboard_proc(
         let _is_up = msg == WM_KEYUP || msg == WM_SYSKEYUP;
         let is_extended = (kb.flags.0 & 1) != 0;
 
+        if _is_up {
+            if vk == VK_NUMLOCK.0 as u32 {
+                NUMLOCK_IS_DOWN.store(false, Ordering::SeqCst);
+            }
+            if vk == VK_MULTIPLY.0 as u32 {
+                MULTIPLY_IS_DOWN.store(false, Ordering::SeqCst);
+            }
+        }
+
         // Track modifiers
         match VIRTUAL_KEY(vk as u16) {
             VK_CONTROL | VK_LCONTROL | VK_RCONTROL => CTRL_DOWN.store(is_down, Ordering::SeqCst),
@@ -168,6 +179,20 @@ unsafe extern "system" fn low_level_keyboard_proc(
         let cfg = CONFIG_CACHE.lock().unwrap().clone().unwrap_or_default();
         let step = cfg.volume.step_percent;
         let fine_step = cfg.volume.fine_step_percent;
+
+        // Autorepeat debounce on keydown
+        if is_down {
+            if vk == VK_NUMLOCK.0 as u32 {
+                if NUMLOCK_IS_DOWN.swap(true, Ordering::SeqCst) {
+                    return if active { LRESULT(1) } else { CallNextHookEx(HOOK_HANDLE, n_code, w_param, l_param) };
+                }
+            }
+            if vk == VK_MULTIPLY.0 as u32 && ctrl {
+                if MULTIPLY_IS_DOWN.swap(true, Ordering::SeqCst) {
+                    return if active { LRESULT(1) } else { CallNextHookEx(HOOK_HANDLE, n_code, w_param, l_param) };
+                }
+            }
+        }
 
         // 1. Check custom toggle shortcut (e.g. Ctrl + Alt + V)
         if is_down {
@@ -209,7 +234,9 @@ unsafe extern "system" fn low_level_keyboard_proc(
                 let now = Instant::now();
                 let mut last = LAST_NUMLOCK_TIME.lock().unwrap();
                 if let Some(prev) = *last {
-                    if now.duration_since(prev) <= Duration::from_millis(cfg.hotkey.double_tap_max_interval_ms) {
+                    let elapsed = now.duration_since(prev).as_millis() as u64;
+                    crate::log_event(&format!("NumLock tap 2: elapsed = {}ms (max = {})", elapsed, cfg.hotkey.double_tap_max_interval_ms.max(500)));
+                    if elapsed <= cfg.hotkey.double_tap_max_interval_ms.max(500) {
                         *last = None;
                         if active {
                             LAYER_ACTIVE.store(false, Ordering::SeqCst);
@@ -220,6 +247,8 @@ unsafe extern "system" fn low_level_keyboard_proc(
                         }
                         return LRESULT(1);
                     }
+                } else {
+                    crate::log_event("NumLock tap 1 registered");
                 }
                 *last = Some(now);
             }

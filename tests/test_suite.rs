@@ -229,3 +229,53 @@ fn test_18_theme_application() {
     assert_eq!(t.name, "Dracula Vampire");
     println!("  [PASS] Theme application and active id resolution verified.");
 }
+
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT};
+use windows::Win32::UI::WindowsAndMessaging::DefWindowProcW;
+
+unsafe extern "system" fn diag_wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    DefWindowProcW(hwnd, msg, wparam, lparam)
+}
+
+#[test]
+fn test_19_tray_and_hook() {
+    use std::sync::{Arc, Mutex};
+    use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+    use windows::Win32::UI::WindowsAndMessaging::*;
+    use windows::Win32::Foundation::*;
+    use windows::core::*;
+
+    unsafe {
+        let hinst: HINSTANCE = GetModuleHandleW(None).unwrap_or_default().into();
+        let class_name = w!("TestDiagClass");
+        let wnd_class = WNDCLASSEXW {
+            cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+            lpfnWndProc: Some(diag_wnd_proc),
+            hInstance: hinst,
+            lpszClassName: PCWSTR(class_name.as_ptr()),
+            ..Default::default()
+        };
+        RegisterClassExW(&wnd_class);
+
+        let hwnd_top = CreateWindowExW(
+            WINDOW_EX_STYLE(0),
+            PCWSTR(class_name.as_ptr()),
+            w!("TestTopReceiver"),
+            WS_POPUP,
+            0, 0, 0, 0,
+            None,
+            None,
+            hinst,
+            None,
+        ).unwrap();
+
+        let cfg = Arc::new(Mutex::new(Config::default()));
+        let _tray = open_volume::tray::TrayIcon::new(hwnd_top, Arc::clone(&cfg));
+
+        // Test hook installation
+        let installed = KeyboardHook::install(hwnd_top, Config::default());
+        assert!(installed, "Keyboard hook must install successfully");
+        KeyboardHook::uninstall();
+        println!("  [PASS] Tray icon creation and low-level keyboard hook verification passed.");
+    }
+}

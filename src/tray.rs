@@ -3,7 +3,6 @@ use crate::startup::is_startup_enabled;
 use std::sync::{Arc, Mutex};
 use windows::core::*;
 use windows::Win32::Foundation::*;
-use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::UI::Shell::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
@@ -27,15 +26,18 @@ pub struct TrayIcon {
     config: Arc<Mutex<Config>>,
 }
 
+const ICON_ICO_BYTES: &[u8] = include_bytes!("../assets/icon.ico");
+
 impl TrayIcon {
     pub fn new(hwnd: HWND, config: Arc<Mutex<Config>>) -> Self {
+        let h_icon = create_tray_icon(false);
         let mut nid = NOTIFYICONDATAW {
             cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
             hWnd: hwnd,
             uID: 1,
             uFlags: NIF_MESSAGE | NIF_ICON | NIF_TIP,
             uCallbackMessage: WM_APP_TRAY,
-            hIcon: create_tray_icon(false),
+            hIcon: h_icon,
             ..Default::default()
         };
 
@@ -47,20 +49,23 @@ impl TrayIcon {
         nid.szTip[len] = 0;
 
         unsafe {
-            let _ = Shell_NotifyIconW(NIM_ADD, &nid);
+            for attempt in 0..5 {
+                let success = Shell_NotifyIconW(NIM_ADD, &nid).as_bool();
+                crate::log_event(&format!("Shell_NotifyIconW attempt {}: success = {}, err = {}", attempt, success, GetLastError().0));
+                if success {
+                    nid.Anonymous.uVersion = NOTIFYICON_VERSION_4;
+                    let _ = Shell_NotifyIconW(NIM_SETVERSION, &nid);
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(150));
+            }
         }
 
         Self { hwnd, nid, config }
     }
 
-    pub fn set_active_state(&mut self, active: bool) {
-        unsafe {
-            if !self.nid.hIcon.0.is_null() {
-                let _ = DestroyIcon(self.nid.hIcon);
-            }
-            self.nid.hIcon = create_tray_icon(active);
-            let _ = Shell_NotifyIconW(NIM_MODIFY, &self.nid);
-        }
+    pub fn set_active_state(&mut self, _active: bool) {
+        // High quality branded icon remains crisp in tray
     }
 
     pub fn show_menu(&self, active_layer: bool, mic_muted: bool) {
@@ -167,52 +172,48 @@ impl Drop for TrayIcon {
     }
 }
 
-fn create_tray_icon(active: bool) -> HICON {
+pub fn create_tray_icon(_active: bool) -> HICON {
     unsafe {
-        let size = 32;
-        let hdc = GetDC(None);
-        let mem_dc = CreateCompatibleDC(hdc);
-        let color_bm = CreateCompatibleBitmap(hdc, size, size);
-        let mask_bm = CreateCompatibleBitmap(hdc, size, size);
+        if ICON_ICO_BYTES.len() >= 6 {
+            let count = u16::from_le_bytes([ICON_ICO_BYTES[4], ICON_ICO_BYTES[5]]) as usize;
+            // Prefer 16x16 or 32x32 icon for taskbar tray
+            for target_size in [16, 32] {
+                for i in 0..count {
+                    let entry_offset = 6 + i * 16;
+                    if entry_offset + 16 <= ICON_ICO_BYTES.len() {
+                        let w = ICON_ICO_BYTES[entry_offset] as i32;
+                        let bytes = u32::from_le_bytes([
+                            ICON_ICO_BYTES[entry_offset + 8],
+                            ICON_ICO_BYTES[entry_offset + 9],
+                            ICON_ICO_BYTES[entry_offset + 10],
+                            ICON_ICO_BYTES[entry_offset + 11],
+                        ]) as usize;
+                        let offset = u32::from_le_bytes([
+                            ICON_ICO_BYTES[entry_offset + 12],
+                            ICON_ICO_BYTES[entry_offset + 13],
+                            ICON_ICO_BYTES[entry_offset + 14],
+                            ICON_ICO_BYTES[entry_offset + 15],
+                        ]) as usize;
 
-        let old_bm = SelectObject(mem_dc, color_bm);
-
-        // Draw icon background (dark round rect)
-        let bg_brush = CreateSolidBrush(COLORREF(0x00181312));
-        SelectObject(mem_dc, bg_brush);
-        RoundRect(mem_dc, 2, 2, size - 2, size - 2, 8, 8);
-
-        // Draw volume speaker glyph
-        let spk_brush = CreateSolidBrush(COLORREF(0x00FFFFFF));
-        SelectObject(mem_dc, spk_brush);
-        RoundRect(mem_dc, 8, 12, 14, 20, 3, 3);
-        DeleteObject(spk_brush);
-
-        // Active green badge dot if Layer 2 is active
-        if active {
-            let dot_brush = CreateSolidBrush(COLORREF(0x00A3E500)); // Bright emerald green
-            SelectObject(mem_dc, dot_brush);
-            Ellipse(mem_dc, size - 11, 3, size - 3, 11);
-            DeleteObject(dot_brush);
+                        if (w == target_size || (target_size == 16 && (w == 16 || w == 0)))
+                            && offset + bytes <= ICON_ICO_BYTES.len()
+                        {
+                            let slice = &ICON_ICO_BYTES[offset..offset + bytes];
+                            if let Ok(hicon) = CreateIconFromResourceEx(
+                                slice,
+                                true,
+                                0x00030000,
+                                target_size,
+                                target_size,
+                                LR_DEFAULTCOLOR,
+                            ) {
+                                return hicon;
+                            }
+                        }
+                    }
+                }
+            }
         }
-
-        SelectObject(mem_dc, old_bm);
-        DeleteObject(bg_brush);
-        DeleteDC(mem_dc);
-        ReleaseDC(None, hdc);
-
-        let icon_info = ICONINFO {
-            fIcon: true.into(),
-            xHotspot: 0,
-            yHotspot: 0,
-            hbmMask: mask_bm,
-            hbmColor: color_bm,
-        };
-
-        let hicon = CreateIconIndirect(&icon_info).unwrap_or(HICON(std::ptr::null_mut()));
-        DeleteObject(color_bm);
-        DeleteObject(mask_bm);
-
-        hicon
+        LoadIconW(None, IDI_APPLICATION).unwrap_or(HICON(std::ptr::null_mut()))
     }
 }

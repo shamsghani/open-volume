@@ -10,6 +10,21 @@ mod sound;
 mod startup;
 mod tray;
 
+pub fn log_event(msg: &str) {
+    let log_path = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("open_volume.log")))
+        .unwrap_or_else(|| std::path::PathBuf::from("open_volume.log"));
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+        use std::io::Write;
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let _ = writeln!(f, "[{}] {}", ts, msg);
+    }
+}
+
 use audio::AudioMixer;
 use config::{list_themes, Config};
 use hook::{decode_action, AppAction, KeyboardHook, WM_APP_ACTION};
@@ -25,7 +40,6 @@ use tray::{
 use windows::core::*;
 use windows::Win32::Foundation::*;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::System::StationsAndDesktops::*;
 use windows::Win32::System::Threading::*;
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
@@ -43,22 +57,20 @@ struct AppState {
 static mut APP_STATE: Option<AppState> = None;
 
 fn main() {
+    log_event("Starting Open-Volume...");
     // 1. Silent Administrator Elevation Check (to bypass UIPI over games like Tiny Glade)
     ensure_admin_elevation();
+    log_event("Admin elevation checked / passed");
 
     // 2. Single-Instance Enforcement via Named Mutex
     unsafe {
         let _ = CreateMutexW(None, false, MUTEX_NAME);
         if GetLastError() == ERROR_ALREADY_EXISTS {
+            log_event("Instance already exists, exiting");
             std::process::exit(0);
         }
-
-        // Attach to default interactive desktop
-        let hdesk = OpenDesktopW(w!("Default"), DESKTOP_CONTROL_FLAGS(0), false, 0x01FF);
-        if let Ok(hd) = hdesk {
-            let _ = SetThreadDesktop(hd);
-        }
     }
+    log_event("Single-instance mutex acquired");
 
     // 3. Load Configuration
     let config = Arc::new(Mutex::new(Config::load()));
@@ -72,6 +84,7 @@ fn main() {
 
     // 5. Create Hidden Message Receiver Window
     let main_hwnd = create_message_window();
+    log_event(&format!("create_message_window returned: {:?}", main_hwnd));
 
     // 6. Create HUD Overlay & Settings Windows
     let overlay = OverlayWindow::new(Arc::clone(&config), Arc::clone(&mixer));
@@ -125,12 +138,12 @@ fn create_message_window() -> HWND {
             WINDOW_EX_STYLE(0),
             PCWSTR(class_name.as_ptr()),
             w!("OpenVolumeMainMsgReceiver"),
-            WS_OVERLAPPED,
+            WS_POPUP,
             0,
             0,
             0,
             0,
-            HWND_MESSAGE,
+            None,
             None,
             hinst,
             None,
@@ -181,6 +194,7 @@ unsafe extern "system" fn main_wnd_proc(
 }
 
 fn handle_app_action(action: AppAction) {
+    log_event(&format!("Action triggered: {:?}", action));
     unsafe {
         let state = match APP_STATE.as_mut() {
             Some(s) => s,

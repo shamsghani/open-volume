@@ -213,6 +213,7 @@ impl OverlayWindow {
                     height,
                     SWP_NOACTIVATE | SWP_SHOWWINDOW,
                 );
+                let _ = ShowWindow(self.hwnd, SW_SHOWNOACTIVATE);
                 self.apply_rounded_corners(width, height);
                 let _ = SetLayeredWindowAttributes(self.hwnd, COLORREF(0), 255, LWA_ALPHA);
                 let _ = InvalidateRect(self.hwnd, None, false);
@@ -230,6 +231,7 @@ impl OverlayWindow {
                     height,
                     SWP_NOACTIVATE | SWP_SHOWWINDOW,
                 );
+                let _ = ShowWindow(self.hwnd, SW_SHOWNOACTIVATE);
                 self.apply_rounded_corners(width, height);
                 let _ = SetLayeredWindowAttributes(self.hwnd, COLORREF(0), 12, LWA_ALPHA);
                 let _ = SetTimer(self.hwnd, TIMER_ANIM_ID, 16, None);

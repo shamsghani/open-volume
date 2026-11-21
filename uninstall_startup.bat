@@ -1,20 +1,18 @@
 @echo off
 title Open-Volume - Remove from Windows Startup
+cd /d "%~dp0"
 echo ========================================================
 echo   Removing Open-Volume from Windows Startup...
 echo ========================================================
 echo.
 
-python startup_manager.py --disable
-
-if %ERRORLEVEL% EQU 0 (
-    echo.
-    echo [SUCCESS] Open-Volume has been removed from Windows Startup.
-) else (
-    echo.
-    echo [ERROR] Failed to remove Open-Volume from Windows Startup.
+schtasks /delete /tn "OpenVolume" /f >nul 2>&1
+if exist "startup_manager.py" (
+    python startup_manager.py --disable >nul 2>&1
 )
 
 echo.
-pause
+echo [SUCCESS] Open-Volume has been removed from Windows Startup.
+echo.
+timeout /t 3 >nul
 

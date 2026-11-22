@@ -88,7 +88,7 @@ fn main() {
     log_event(&format!("create_message_window returned: {:?}", main_hwnd));
 
     // 6. Create HUD Overlay & Settings Windows
-    let overlay = OverlayWindow::new(Arc::clone(&config), Arc::clone(&mixer));
+    let overlay = OverlayWindow::new(main_hwnd, Arc::clone(&config), Arc::clone(&mixer));
     let settings = SettingsWindow::new(Arc::clone(&config));
 
     // 7. Create System Tray Icon
@@ -251,6 +251,7 @@ fn handle_app_action(action: AppAction) {
 
         match action {
             AppAction::LayerEnter => {
+                KeyboardHook::set_layer_active(true);
                 {
                     let mut mixer = state.mixer.lock().unwrap();
                     mixer.refresh();
@@ -266,11 +267,13 @@ fn handle_app_action(action: AppAction) {
                 if sound_enabled { sound::play_layer_on(); }
             }
             AppAction::LayerExit => {
+                let was_active = KeyboardHook::is_layer_active();
+                KeyboardHook::set_layer_active(false);
                 state.overlay.hide();
                 if let Some(ref mut tray) = state.tray {
                     tray.set_active_state(false);
                 }
-                if sound_enabled { sound::play_layer_off(); }
+                if was_active && sound_enabled { sound::play_layer_off(); }
             }
             AppAction::VolumeUp(step) => {
                 state.mixer.lock().unwrap().adjust_volume(step);

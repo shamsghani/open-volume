@@ -16,10 +16,12 @@ const TIMER_AUTOHIDE_ID: usize = 3;
 
 pub struct OverlayWindow {
     hwnd: HWND,
+    main_hwnd: HWND,
     config: Arc<Mutex<Config>>,
     mixer: Arc<Mutex<AudioMixer>>,
     visible: bool,
     anim_in_progress: bool,
+    anim_fade_out: bool,
     anim_start_time: Instant,
     target_x: i32,
     target_y: i32,
@@ -40,13 +42,15 @@ pub struct OverlayWindow {
 static mut OVERLAY_INSTANCE: Option<*mut OverlayWindow> = None;
 
 impl OverlayWindow {
-    pub fn new(config: Arc<Mutex<Config>>, mixer: Arc<Mutex<AudioMixer>>) -> Box<Self> {
+    pub fn new(main_hwnd: HWND, config: Arc<Mutex<Config>>, mixer: Arc<Mutex<AudioMixer>>) -> Box<Self> {
         let mut overlay = Box::new(Self {
             hwnd: HWND(std::ptr::null_mut()),
+            main_hwnd,
             config,
             mixer,
             visible: false,
             anim_in_progress: false,
+            anim_fade_out: false,
             anim_start_time: Instant::now(),
             target_x: 0,
             target_y: 0,
@@ -204,6 +208,7 @@ impl OverlayWindow {
         unsafe {
             if !anim_enabled {
                 self.anim_in_progress = false;
+                self.anim_fade_out = false;
                 let _ = SetWindowPos(
                     self.hwnd,
                     HWND_TOPMOST,
@@ -219,6 +224,7 @@ impl OverlayWindow {
                 let _ = InvalidateRect(self.hwnd, None, false);
             } else {
                 self.anim_in_progress = true;
+                self.anim_fade_out = false;
                 self.anim_start_time = Instant::now();
                 let start_x = x + dx;
                 let start_y = y + dy;
@@ -244,8 +250,29 @@ impl OverlayWindow {
     }
 
     pub fn hide(&mut self) {
+        if !self.visible && !self.anim_in_progress {
+            return;
+        }
+
+        let anim_enabled = self.config.lock().unwrap().appearance.animation_enabled;
+        if anim_enabled && self.visible && !self.anim_fade_out {
+            self.anim_in_progress = true;
+            self.anim_fade_out = true;
+            self.anim_start_time = Instant::now();
+            unsafe {
+                let _ = KillTimer(self.hwnd, TIMER_VU_ID);
+                let _ = KillTimer(self.hwnd, TIMER_AUTOHIDE_ID);
+                let _ = SetTimer(self.hwnd, TIMER_ANIM_ID, 16, None);
+            }
+        } else if !anim_enabled {
+            self.hide_instant();
+        }
+    }
+
+    pub fn hide_instant(&mut self) {
         self.visible = false;
         self.anim_in_progress = false;
+        self.anim_fade_out = false;
         unsafe {
             let _ = KillTimer(self.hwnd, TIMER_ANIM_ID);
             let _ = KillTimer(self.hwnd, TIMER_VU_ID);
@@ -312,51 +339,83 @@ impl OverlayWindow {
     }
 
     fn step_animation(&mut self) {
-        if !self.visible || !self.anim_in_progress {
+        if !self.anim_in_progress {
             unsafe { let _ = KillTimer(self.hwnd, TIMER_ANIM_ID); }
             return;
         }
 
-        let duration_ms = self.config.lock().unwrap().appearance.animation_duration_ms.max(50);
-        let elapsed = self.anim_start_time.elapsed().as_millis() as f32;
-        let t = (elapsed / duration_ms as f32).clamp(0.0, 1.0);
-        let ease = 1.0 - (1.0 - t).powi(3);
-
-        let cur_x = (self.target_x as f32 + self.slide_dx as f32 * (1.0 - ease)) as i32;
-        let cur_y = (self.target_y as f32 + self.slide_dy as f32 * (1.0 - ease)) as i32;
-        let cur_alpha = ((12.0 + 243.0 * ease).round() as u8).max(12);
-
         let width = self.config.lock().unwrap().appearance.width;
 
-        unsafe {
-            let _ = SetWindowPos(
-                self.hwnd,
-                HWND_TOPMOST,
-                cur_x,
-                cur_y,
-                width,
-                self.target_h,
-                SWP_NOACTIVATE | SWP_SHOWWINDOW,
-            );
-            let _ = SetLayeredWindowAttributes(self.hwnd, COLORREF(0), cur_alpha, LWA_ALPHA);
-            let _ = InvalidateRect(self.hwnd, None, false);
+        if !self.anim_fade_out {
+            // Slide in & fade in
+            let duration_ms = self.config.lock().unwrap().appearance.animation_duration_ms.max(50);
+            let elapsed = self.anim_start_time.elapsed().as_millis() as f32;
+            let t = (elapsed / duration_ms as f32).clamp(0.0, 1.0);
+            let ease = 1.0 - (1.0 - t).powi(3);
 
-            if t >= 1.0 {
-                self.anim_in_progress = false;
-                let _ = KillTimer(self.hwnd, TIMER_ANIM_ID);
-                let _ = SetLayeredWindowAttributes(self.hwnd, COLORREF(0), 255, LWA_ALPHA);
+            let cur_x = (self.target_x as f32 + self.slide_dx as f32 * (1.0 - ease)) as i32;
+            let cur_y = (self.target_y as f32 + self.slide_dy as f32 * (1.0 - ease)) as i32;
+            let cur_alpha = ((12.0 + 243.0 * ease).round() as u8).max(12);
+
+            unsafe {
                 let _ = SetWindowPos(
                     self.hwnd,
                     HWND_TOPMOST,
-                    self.target_x,
-                    self.target_y,
+                    cur_x,
+                    cur_y,
                     width,
                     self.target_h,
-                    SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                    SWP_NOACTIVATE | SWP_NOZORDER,
                 );
+                let _ = SetLayeredWindowAttributes(self.hwnd, COLORREF(0), cur_alpha, LWA_ALPHA);
+                let _ = InvalidateRect(self.hwnd, None, false);
+
+                if t >= 1.0 {
+                    self.anim_in_progress = false;
+                    let _ = KillTimer(self.hwnd, TIMER_ANIM_ID);
+                    let _ = SetLayeredWindowAttributes(self.hwnd, COLORREF(0), 255, LWA_ALPHA);
+                    let _ = SetWindowPos(
+                        self.hwnd,
+                        HWND_TOPMOST,
+                        self.target_x,
+                        self.target_y,
+                        width,
+                        self.target_h,
+                        SWP_NOACTIVATE | SWP_NOZORDER,
+                    );
+                }
+            }
+            self.reassert_topmost();
+        } else {
+            // Slide out & fade out
+            let duration_ms = ((self.config.lock().unwrap().appearance.animation_duration_ms.max(50) as f32) * 0.7)
+                .clamp(70.0, 150.0) as u32;
+            let elapsed = self.anim_start_time.elapsed().as_millis() as f32;
+            let t = (elapsed / duration_ms as f32).clamp(0.0, 1.0);
+            let ease = t.powi(3);
+
+            let cur_x = (self.target_x as f32 + self.slide_dx as f32 * ease) as i32;
+            let cur_y = (self.target_y as f32 + self.slide_dy as f32 * ease) as i32;
+            let cur_alpha = (255.0 * (1.0 - ease)).round() as u8;
+
+            unsafe {
+                if t >= 1.0 {
+                    self.hide_instant();
+                } else {
+                    let _ = SetWindowPos(
+                        self.hwnd,
+                        HWND_TOPMOST,
+                        cur_x,
+                        cur_y,
+                        width,
+                        self.target_h,
+                        SWP_NOACTIVATE | SWP_NOZORDER,
+                    );
+                    let _ = SetLayeredWindowAttributes(self.hwnd, COLORREF(0), cur_alpha, LWA_ALPHA);
+                    let _ = InvalidateRect(self.hwnd, None, false);
+                }
             }
         }
-        self.reassert_topmost();
     }
 
     fn poll_vu_meter(&mut self) {
@@ -404,11 +463,30 @@ impl OverlayWindow {
     }
 
     fn check_autohide(&mut self) {
-        if !self.visible {
+        if !self.visible || self.anim_fade_out {
             return;
         }
-        let timeout_secs = self.config.lock().unwrap().behavior.auto_hide_seconds;
+        let is_layer_active = crate::hook::KeyboardHook::is_layer_active();
+        let timeout_secs = if is_layer_active {
+            self.config.lock().unwrap().behavior.auto_hide_seconds
+        } else {
+            2
+        };
         if timeout_secs > 0 && self.last_activity.elapsed() >= Duration::from_secs(timeout_secs) {
+            crate::log_event("Overlay autohide timeout elapsed. Hiding overlay and deactivating layer if active.");
+            if is_layer_active {
+                crate::hook::KeyboardHook::set_layer_active(false);
+                if !self.main_hwnd.0.is_null() {
+                    unsafe {
+                        let _ = windows::Win32::UI::WindowsAndMessaging::PostMessageW(
+                            self.main_hwnd,
+                            crate::hook::WM_APP_ACTION,
+                            windows::Win32::Foundation::WPARAM(2), // AppAction::LayerExit
+                            windows::Win32::Foundation::LPARAM(0),
+                        );
+                    }
+                }
+            }
             self.hide();
         }
     }

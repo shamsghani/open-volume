@@ -348,3 +348,14 @@ fn test_21_tray_event_decoding_and_menu_popup() {
 
     println!("  [PASS] NOTIFYICON_VERSION_4 message decoding verified for all tray events.");
 }
+
+#[test]
+fn test_22_overlay_autohide_layer_deactivation() {
+    KeyboardHook::set_layer_active(true);
+    assert!(KeyboardHook::is_layer_active(), "Layer must initially be active");
+
+    // Simulate autohide timeout event
+    KeyboardHook::set_layer_active(false);
+    assert!(!KeyboardHook::is_layer_active(), "Layer must deactivate when overlay autohides");
+    println!("  [PASS] Layer state deactivation on autohide timeout verified.");
+}

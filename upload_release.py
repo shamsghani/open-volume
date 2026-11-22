@@ -20,7 +20,7 @@ def publish_release():
     token = get_token()
     owner = "shamsghani"
     repo = "open-volume"
-    tag = "v2.0.1"
+    tag = "v2.0.2"
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -29,47 +29,38 @@ def publish_release():
     }
 
     # Release body notes
-    body_md = """# ⚡ Open-Volume 2.0.1 (Hotfix: Global Mic Mute & Tray Context Menu)
+    body_md = """# ⚡ Open-Volume 2.0.2 (Layer Deactivation on Timeout & Smooth Fade-Out)
 
-A patch release bringing critical fixes to the native Rust architecture, ensuring true global microphone muting across all input endpoints (including Discord) and resolving system tray context menu interactions.
+A bugfix release resolving layer persistence when the HUD overlay times out, and restoring the smooth hardware-accelerated slide-out and fade-out animation.
 
 ---
 
-### 🛠️ What's Fixed in v2.0.1
+### 🛠️ What's Fixed & Improved in v2.0.2
 
-#### 1. 🎙️ True Global Microphone Mute
-- Iterates and mutes **all active capture devices** simultaneously via WASAPI (`EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE)`).
-- Resolves issues where communications apps like **Discord**, OBS, or Teams did not mute because they were bound to a specific hardware or virtual endpoint rather than the generic default console device.
-- HUD overlay now clearly displays `"All Microphones MUTED"` / `"All Microphones LIVE"`.
+#### 1. 🔄 Layer Deactivation on Overlay Timeout
+- **Problem**: When the overlay reached its inactivity timeout and disappeared, Layer 2 remained active in the background. Numpad keys continued to be intercepted as audio controls instead of normal typing.
+- **Fix**: The autohide timer now immediately deactivates the low-level keyboard hook layer (`KeyboardHook::set_layer_active(false)`) and dispatches `AppAction::LayerExit`. Numpad keys immediately return to standard functionality.
 
-#### 2. 🖱️ System Tray Right-Click Context Menu
-- Fixed 16-bit message decoding under Windows `NOTIFYICON_VERSION_4`: extracts `LOWORD(lParam)` so right-click events (`WM_CONTEXTMENU`, `WM_RBUTTONUP`) properly trigger the context menu.
-- Implemented standard Win32 menu dismissal: clicking anywhere outside the menu cleanly closes it without leaving focus trapped.
-- Added smart cursor coordinate detection from `wParam` and `GetCursorPos` for centered and multi-monitor taskbars.
-- Added 350ms atomic debounce preventing double-menu popups.
+#### 2. 🎬 Smooth Slide-Out & Fade-Out Animation
+- Restored the smooth cubic ease-in fade-out and slide-out animation (~100ms) matching the legacy experience.
+- When timing out or closing the overlay, the window smoothly glides away and fades out via DWM layered alpha instead of disappearing abruptly.
 
-#### 3. 👆 System Tray Left-Click Action
-- Left-clicking the tray icon now immediately toggles the HUD overlay on/off (`NIN_SELECT`, `WM_LBUTTONUP`).
-
-#### 4. 🔄 Explorer Boot & Restart Auto-Recovery
-- Registered `TaskbarCreated` window message with elevated UIPI message filter bypass (`MSGFLT_ADD`), allowing Explorer restarts to automatically recreate the tray icon even while running elevated.
-- Added persistent 1-second auto-retry timer on boot to gracefully handle delayed Explorer initialization.
-
-#### 5. ⚙️ Settings Window Focus Restoration
-- Updated `ShowWindow` call to `SW_SHOWNORMAL`, guaranteeing the settings window restores and focuses even if previously minimized.
+#### 3. 🔊 Synchronized Audio Feedback & Tray Tooltip
+- Autohide timeout now properly updates the tray icon status to `READY` and triggers the layer-off sound cue (when sound feedback is enabled).
+- Standalone toast notifications (e.g. media keys) fade away after 2 seconds without triggering spurious layer-off sounds.
 
 ---
 
 ### 📦 Downloads & Installation
 
-- **`OpenVolume-v2.0.1-windows-x64.zip`**: Complete portable bundle (includes executable and docs).
+- **`OpenVolume-v2.0.2-windows-x64.zip`**: Complete portable bundle (includes executable and docs).
 - **`open-volume.exe`**: Standalone portable single-file executable (521 KB). No installation required!
 """
 
     release_payload = {
         "tag_name": tag,
         "target_commitish": "main",
-        "name": "Open-Volume 2.0.1 (Global Mic Mute & Tray Fixes)",
+        "name": "Open-Volume 2.0.2 (Layer Deactivation on Timeout & Fade-Out)",
         "body": body_md,
         "draft": False,
         "prerelease": False
@@ -108,7 +99,7 @@ A patch release bringing critical fixes to the native Rust architecture, ensurin
 
     # Assets to upload
     assets = [
-        ("dist/release/OpenVolume-v2.0.1-windows-x64.zip", "application/zip", "OpenVolume-v2.0.1-windows-x64.zip"),
+        ("dist/release/OpenVolume-v2.0.2-windows-x64.zip", "application/zip", "OpenVolume-v2.0.2-windows-x64.zip"),
         ("dist/release/open-volume.exe", "application/octet-stream", "open-volume.exe"),
         ("dist/release/OpenVolume-windows-x64.zip", "application/zip", "OpenVolume-windows-x64.zip")
     ]

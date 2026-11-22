@@ -75,13 +75,16 @@ fn main() {
 
     // 3. Load Configuration
     let config = Arc::new(Mutex::new(Config::load()));
-    let (perceptual, pinned) = {
+    let (perceptual, pinned, excluded) = {
         let cfg = config.lock().unwrap();
-        (cfg.volume.perceptual_curve, cfg.pinned_apps.clone())
+        (cfg.volume.perceptual_curve, cfg.pinned_apps.clone(), cfg.behavior.excluded_apps.clone())
     };
 
     // 4. Initialize Core Audio Mixer
-    let mixer = Arc::new(Mutex::new(AudioMixer::new(perceptual, pinned)));
+    let mut mixer_obj = AudioMixer::new(perceptual, pinned);
+    mixer_obj.excluded_apps = excluded;
+    mixer_obj.refresh();
+    let mixer = Arc::new(Mutex::new(mixer_obj));
 
     // 5. Create Hidden Message Receiver Window
     let main_hwnd = create_message_window();

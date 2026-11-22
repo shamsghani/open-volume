@@ -73,6 +73,12 @@ pub struct BehaviorConfig {
     pub follow_focus: bool,
     #[serde(default = "default_true")]
     pub numpad_media_keys: bool,
+    #[serde(default = "default_excluded_apps")]
+    pub excluded_apps: Vec<String>,
+}
+
+fn default_excluded_apps() -> Vec<String> {
+    vec!["open-volume".to_string(), "audiosrv".to_string()]
 }
 
 impl Default for BehaviorConfig {
@@ -83,6 +89,7 @@ impl Default for BehaviorConfig {
             start_on_boot: false,
             follow_focus: true,
             numpad_media_keys: true,
+            excluded_apps: default_excluded_apps(),
         }
     }
 }

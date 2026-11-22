@@ -20,7 +20,7 @@ def publish_release():
     token = get_token()
     owner = "shamsghani"
     repo = "open-volume"
-    tag = "v2.1.0"
+    tag = "v2.1.1"
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -29,47 +29,37 @@ def publish_release():
     }
 
     # Release body notes
-    body_md = """# ⚡ Open-Volume 2.1.0 (Themed Settings, 6-Position Monitor Selector & Keybinds)
+    body_md = """# ⚡ Open-Volume 2.1.1 (Exclusion of AudioSrv & Self-Process)
 
-A major feature release bringing full theme integration to the Settings menu, an interactive 6-position screen monitor selector, visual custom keybinding recording with a one-click reset to defaults, and a direct GitHub repository shortcut.
+A bugfix release resolving internal Windows audio service sessions and self-process clutter from the mixer list.
 
 ---
 
-### ✨ What's New in v2.1.0
+### 🛠️ What's Fixed in v2.1.1
 
-#### 1. 📐 Interactive 6-Position Screen Monitor Selector
-- Added a stylized monitor screen rectangle in the Settings menu illustrating all **6 screen anchor positions**:
-  - `Top-Left`, `Top-Center`, `Top-Right`
-  - `Bottom-Left`, `Bottom-Center`, `Bottom-Right`
-- Clicking any zone in the monitor frame immediately docks the HUD overlay to that display edge with real-time feedback and updates the system tray position submenu.
+#### 1. 🚫 Excluded Windows Audio Service (`@%SystemRoot%\\System32\\AudioSrv.Dll`)
+- Windows Core Audio internally generates an unexpanded resource session string (`@%SystemRoot%\\System32\\AudioSrv.Dll,-202`) for system alert and notification sounds.
+- Open-Volume now automatically identifies and excludes these internal Windows service sessions so only actual user applications are listed in the mixer.
 
-#### 2. 🎨 Full Dynamic Theming in Settings Window
-- The Settings window now fully inherits and renders using your active theme palette (`bg_color`, `card_bg`, `selected_bg`, `accent_color`, `text_primary`, `border_color`).
-- Switching themes in the palette grid immediately transforms the Settings window in real-time.
-- Double-buffered Win32 memory DC rendering ensures 100% flicker-free repaints.
+#### 2. 🚫 Excluded Open-Volume Self-Process
+- When Open-Volume plays audio feedback ("womp" enter, exit, volume steps), Windows creates an audio session for `open-volume.exe`.
+- The mixer now automatically detects its own process ID (`std::process::id()`) and process name, preventing Open-Volume from appearing in its own audio list.
 
-#### 3. ⌨️ Manual Custom Keybinding Editor & 🔄 Reset to Defaults
-- Configure all 10 core shortcuts directly from the UI without touching `config.json`:
-  - *Toggle HUD Layer, Volume Up, Volume Down, Next App, Prev App, Toggle Mute, Global Mic Mute, Play/Pause, Next Track, Exit HUD*.
-- Click any shortcut button to enter interactive recording mode (`[ Press Key... ]`) — press any key or combination (Ctrl, Alt, Shift, Win) to rebind.
-- Press **Escape** anytime to cancel recording.
-- One-click **`🔄 Reset Defaults`** button instantly restores standard factory shortcuts.
-
-#### 4. ⭐ Direct GitHub Shortcut
-- Added a one-click **`⭐ View GitHub`** button in the Settings header to visit the repository for updates, star the project, and report feedback.
+#### 3. ⚙️ User-Configurable Exclusion List
+- Added `behavior.excluded_apps` to `config.json` (defaults: `["open-volume", "audiosrv"]`), allowing users to easily exclude any background processes or services from the HUD overlay.
 
 ---
 
 ### 📦 Downloads & Installation
 
-- **`OpenVolume-v2.1.0-windows-x64.zip`**: Complete portable bundle (includes executable and docs).
-- **`open-volume.exe`**: Standalone portable single-file executable (524 KB). No installation required!
+- **`OpenVolume-v2.1.1-windows-x64.zip`**: Complete portable bundle (includes executable and docs).
+- **`open-volume.exe`**: Standalone portable single-file executable (537 KB). No installation required!
 """
 
     release_payload = {
         "tag_name": tag,
         "target_commitish": "main",
-        "name": "Open-Volume 2.1.0 (Themed Settings, 6-Position Selector & Keybinds)",
+        "name": "Open-Volume 2.1.1 (Exclusion of AudioSrv & Self-Process)",
         "body": body_md,
         "draft": False,
         "prerelease": False
@@ -108,7 +98,7 @@ A major feature release bringing full theme integration to the Settings menu, an
 
     # Assets to upload
     assets = [
-        ("dist/release/OpenVolume-v2.1.0-windows-x64.zip", "application/zip", "OpenVolume-v2.1.0-windows-x64.zip"),
+        ("dist/release/OpenVolume-v2.1.1-windows-x64.zip", "application/zip", "OpenVolume-v2.1.1-windows-x64.zip"),
         ("dist/release/open-volume.exe", "application/octet-stream", "open-volume.exe"),
         ("dist/release/OpenVolume-windows-x64.zip", "application/zip", "OpenVolume-windows-x64.zip")
     ]

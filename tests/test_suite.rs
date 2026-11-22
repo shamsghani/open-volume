@@ -389,3 +389,24 @@ fn test_23_settings_all_six_positions_and_keybinds() {
 
     println!("  [PASS] All 6 HUD positions and keybinding formatting verified.");
 }
+
+#[test]
+fn test_24_process_and_service_exclusions() {
+    let mixer = AudioMixer::new(true, vec![]);
+    // Verify exclusion checks
+    assert!(mixer.is_excluded("@%SystemRoot%\\System32\\AudioSrv.Dll,-202", 0));
+    assert!(mixer.is_excluded("open-volume", std::process::id()));
+    assert!(mixer.is_excluded("open-volume.exe", 1234));
+    assert!(mixer.is_excluded("AudioSrv", 9999));
+    assert!(!mixer.is_excluded("Google Chrome", 5555));
+    assert!(!mixer.is_excluded("Discord", 6666));
+    assert!(!mixer.is_excluded("Spotify", 7777));
+
+    let apps = mixer.get_apps();
+    for app in apps {
+        assert!(!app.name.to_lowercase().contains("audiosrv"), "AudioSrv must not be in mixer apps");
+        assert!(!app.name.starts_with('@'), "Resource string DLLs must not be in mixer apps");
+        assert!(!app.name.eq_ignore_ascii_case("open-volume"), "open-volume must not be in mixer apps");
+    }
+    println!("  [PASS] AudioSrv and open-volume self-exclusion verified across active sessions.");
+}

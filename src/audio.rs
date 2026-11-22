@@ -23,6 +23,7 @@ pub struct AppAudioSession {
 pub struct AudioMixer {
     pub perceptual_curve: bool,
     pub pinned_apps: Vec<String>,
+    pub excluded_apps: Vec<String>,
     selected_index: usize,
     apps: Vec<AppAudioSession>,
 }
@@ -35,11 +36,34 @@ impl AudioMixer {
         let mut mixer = Self {
             perceptual_curve,
             pinned_apps,
+            excluded_apps: vec!["open-volume".to_string(), "audiosrv".to_string()],
             selected_index: 0,
             apps: Vec::new(),
         };
         mixer.refresh();
         mixer
+    }
+
+    pub fn is_excluded(&self, name: &str, pid: u32) -> bool {
+        let my_pid = std::process::id();
+        if pid == my_pid && pid > 0 {
+            return true;
+        }
+        let lower = name.to_lowercase();
+        if lower.contains("open-volume")
+            || lower.contains("open_volume")
+            || lower.contains("audiosrv")
+            || name.starts_with('@')
+        {
+            return true;
+        }
+        for exc in &self.excluded_apps {
+            let exc_l = exc.to_lowercase();
+            if !exc_l.is_empty() && lower.contains(&exc_l) {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn set_perceptual_curve(&mut self, enabled: bool) {
@@ -165,6 +189,11 @@ impl AudioMixer {
                                             } else {
                                                 app_name = format!("App ({})", pid);
                                             }
+                                        }
+
+                                        // Skip excluded apps (e.g. open-volume self-process, AudioSrv system sound DLLs, custom exclusions)
+                                        if self.is_excluded(&app_name, pid) {
+                                            continue;
                                         }
 
                                         let mut vol_pct = 100;

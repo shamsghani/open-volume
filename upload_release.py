@@ -20,7 +20,7 @@ def publish_release():
     token = get_token()
     owner = "shamsghani"
     repo = "open-volume"
-    tag = "v2.0.0"
+    tag = "v2.0.1"
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -29,73 +29,47 @@ def publish_release():
     }
 
     # Release body notes
-    body_md = """# ⚡ Open-Volume 2.0.0 (Native Rust Rewrite)
+    body_md = """# ⚡ Open-Volume 2.0.1 (Hotfix: Global Mic Mute & Tray Context Menu)
 
-A landmark release completely rewriting Open-Volume in **100% native Rust** using direct Win32 and WASAPI subsystem calls. Zero Python runtime, zero Tcl/Tk, zero heavy dependencies—delivering lightning-fast responsiveness, microscopic resource usage, and seamless performance over full-screen games.
-
----
-
-### 📊 Performance & Resource Comparison
-
-| Metric | Legacy Python (v1.5) | Native Rust (v2.0) | Improvement |
-| :--- | :--- | :--- | :--- |
-| **Binary Size** | ~35 MB (PyInstaller bundle) | **494 KB** (`open-volume.exe`) | **98.6% smaller** |
-| **Idle RAM Usage (RSS)** | ~64.2 MB | **17.4 MB** | **73% less memory** |
-| **Full Test Suite (18 tests)**| 6.82 seconds | **0.09 seconds** | **75x faster** |
-| **Launch / Warmup Time** | ~1,200 ms | **< 25 ms** | **Instantaneous** |
-| **External Dependencies** | Python 3.10+, Tk, PyCAW, COM | **None** (Pure Win32 / WASAPI PE) | Completely self-contained |
+A patch release bringing critical fixes to the native Rust architecture, ensuring true global microphone muting across all input endpoints (including Discord) and resolving system tray context menu interactions.
 
 ---
 
-### ✨ What's New in v2.0.0
+### 🛠️ What's Fixed in v2.0.1
 
-#### 1. 🦀 100% Pure Native Rust Engine
-- Replaced the entire Python/Tkinter stack with a single, standalone native Windows x86_64 PE binary (`open-volume.exe`).
-- Zero external runtime requirements: no Python installation, no virtual environments, no DLL extractors.
-- Ultra-optimized release profile with Level 3 optimizations, Link-Time Optimization (LTO), and symbol stripping.
+#### 1. 🎙️ True Global Microphone Mute
+- Iterates and mutes **all active capture devices** simultaneously via WASAPI (`EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE)`).
+- Resolves issues where communications apps like **Discord**, OBS, or Teams did not mute because they were bound to a specific hardware or virtual endpoint rather than the generic default console device.
+- HUD overlay now clearly displays `"All Microphones MUTED"` / `"All Microphones LIVE"`.
 
-#### 2. 🎛️ Direct WASAPI Audio Architecture
-- Direct COM bindings to Windows Core Audio (`IMMDeviceEnumerator`, `IAudioEndpointVolume`, `IAudioSessionManager2`, `IAudioMeterInformation`).
-- Real-time hardware peak meter polling with ballistic release decay and live app activity indicators.
-- Perceptual acoustic power curve ($P^{1.8}$) for silky-smooth low-volume adjustments.
-- Follow-focus automatic foreground application detection.
-- Pinned applications support (e.g., Discord, Spotify, Chrome prioritized at the top).
+#### 2. 🖱️ System Tray Right-Click Context Menu
+- Fixed 16-bit message decoding under Windows `NOTIFYICON_VERSION_4`: extracts `LOWORD(lParam)` so right-click events (`WM_CONTEXTMENU`, `WM_RBUTTONUP`) properly trigger the context menu.
+- Implemented standard Win32 menu dismissal: clicking anywhere outside the menu cleanly closes it without leaving focus trapped.
+- Added smart cursor coordinate detection from `wParam` and `GetCursorPos` for centered and multi-monitor taskbars.
+- Added 350ms atomic debounce preventing double-menu popups.
 
-#### 3. 🎮 Fullscreen Exclusive Game Compatibility & UIPI Hook Fix
-- Non-activating topmost layered HUD overlay (`WS_EX_LAYERED | WS_EX_NOACTIVATE | WS_EX_TOPMOST | WS_EX_TOOLWINDOW`).
-- Never steals keyboard or window focus from full-screen games.
-- Elevated execution with automatic Task Scheduler registration (`/rl highest`), allowing hotkeys to register seamlessly even over administrative or anti-cheat-protected games.
+#### 3. 👆 System Tray Left-Click Action
+- Left-clicking the tray icon now immediately toggles the HUD overlay on/off (`NIN_SELECT`, `WM_LBUTTONUP`).
 
-#### 4. 🎨 Modern Rounded Corners & Theme Engine
-- Anti-aliased Windows 11 hardware rounding via Desktop Window Manager (`DwmSetWindowAttribute`).
-- Physical window clipping via `CreateRoundRectRgn` ensuring zero square corner artifacts.
-- 8 handcrafted theme palettes: **Cyberpunk Mint**, **Nordic Frost**, **Dracula**, **Catppuccin Mocha**, **Solarized Dark**, **Retro Amber CRT**, **OLED Pure Black**, and **Clean Minimal Light**.
-- Dynamic theme switching on the fly directly from the System Tray or settings.
+#### 4. 🔄 Explorer Boot & Restart Auto-Recovery
+- Registered `TaskbarCreated` window message with elevated UIPI message filter bypass (`MSGFLT_ADD`), allowing Explorer restarts to automatically recreate the tray icon even while running elevated.
+- Added persistent 1-second auto-retry timer on boot to gracefully handle delayed Explorer initialization.
 
-#### 5. 🔊 Embedded Polyphonic "Womp" Audio Feedback
-- All 6 warm pre-synthesized audio feedback files (`womp_enter.wav`, `womp_exit.wav`, `womp_up.wav`, `womp_down.wav`, `womp_cycle.wav`, `womp_mute.wav`) are embedded directly inside the binary.
-- Plays via `PlaySoundW` from memory with zero file I/O latency.
-
-#### 6. ⌨️ Restored Numpad Controls & Robust Modifier Detection
-- Hardware keystate polling via `GetAsyncKeyState` ensures single-tap **`Ctrl + NumLock`** registers immediately on the first press.
-- **`Double-tap NumLock`**, **`Ctrl + Numpad *`**, and **`Ctrl + Alt + V`** for full-size, modular, and compact laptop keyboards.
-- **`Numpad /`** (Divide) selects Previous App, **`Numpad *`** (Multiply) selects Next App.
-- **`Numpad 5`** and **`Numpad Enter`** toggle Mute.
-- Strict `LLKHF_EXTENDED` isolation: Main Keyboard Enter is untouched and never intercepted.
+#### 5. ⚙️ Settings Window Focus Restoration
+- Updated `ShowWindow` call to `SW_SHOWNORMAL`, guaranteeing the settings window restores and focuses even if previously minimized.
 
 ---
 
 ### 📦 Downloads & Installation
 
-- **`OpenVolume-v2.0.0-windows-x64.zip`**: Complete portable bundle (includes executable, custom assets, `config.json`, background runner, and setup scripts).
-- **`open-volume.exe`**: Standalone portable single-file executable (494 KB). Simply download and run!
-- **`MountainEverest60-NumpadAudio-v2.0.0-windows-x64.zip`**: Mirror package under original naming.
+- **`OpenVolume-v2.0.1-windows-x64.zip`**: Complete portable bundle (includes executable and docs).
+- **`open-volume.exe`**: Standalone portable single-file executable (521 KB). No installation required!
 """
 
     release_payload = {
         "tag_name": tag,
         "target_commitish": "main",
-        "name": "Open-Volume 2.0.0 (Native Rust Architecture)",
+        "name": "Open-Volume 2.0.1 (Global Mic Mute & Tray Fixes)",
         "body": body_md,
         "draft": False,
         "prerelease": False
@@ -134,9 +108,8 @@ A landmark release completely rewriting Open-Volume in **100% native Rust** usin
 
     # Assets to upload
     assets = [
-        ("dist/release/OpenVolume-v2.0.0-windows-x64.zip", "application/zip", "OpenVolume-v2.0.0-windows-x64.zip"),
+        ("dist/release/OpenVolume-v2.0.1-windows-x64.zip", "application/zip", "OpenVolume-v2.0.1-windows-x64.zip"),
         ("dist/release/open-volume.exe", "application/octet-stream", "open-volume.exe"),
-        ("dist/release/MountainEverest60-NumpadAudio-v2.0.0-windows-x64.zip", "application/zip", "MountainEverest60-NumpadAudio-v2.0.0-windows-x64.zip"),
         ("dist/release/OpenVolume-windows-x64.zip", "application/zip", "OpenVolume-windows-x64.zip")
     ]
 

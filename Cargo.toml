@@ -1,6 +1,6 @@
 [package]
 name = "open-volume"
-version = "2.0.0"
+version = "2.0.1"
 edition = "2021"
 authors = ["Shams Ghani"]
 description = "High-performance native Windows audio mixer, HUD overlay, and macropad controller in Rust"

@@ -161,10 +161,12 @@ impl TrayIcon {
             if let Ok(pos_menu) = CreatePopupMenu() {
                 let current_pos = self.config.lock().unwrap().appearance.position.clone();
                 let positions = [
-                    ("bottom-right", "Bottom-Right"),
+                    ("top-left", "Top-Left"),
                     ("top-center", "Top-Center"),
                     ("top-right", "Top-Right"),
+                    ("bottom-left", "Bottom-Left"),
                     ("bottom-center", "Bottom-Center"),
+                    ("bottom-right", "Bottom-Right"),
                 ];
                 for (i, (pos_id, label)) in positions.iter().enumerate() {
                     let mut flags = MF_STRING;

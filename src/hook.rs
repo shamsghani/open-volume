@@ -261,8 +261,67 @@ unsafe extern "system" fn low_level_keyboard_proc(
             }
         }
 
-        // 3. When Layer 2 is ACTIVE: handle numpad & macro keys
+        // 3. Check custom global hotkeys (e.g. toggle mic mute) even if layer not active
+        if let Some(b) = cfg.custom_bindings.get("toggle_mic_mute") {
+            if b.vk == vk && b.ctrl == ctrl && b.alt == alt && b.shift == shift && b.win == win {
+                if is_down {
+                    dispatch(AppAction::ToggleMicMute);
+                }
+                return LRESULT(1);
+            }
+        }
+
+        // 4. When Layer 2 is ACTIVE: handle numpad & macro keys
         if active {
+            // Check custom bindings first
+            let matches_binding = |act_name: &str| -> bool {
+                if let Some(b) = cfg.custom_bindings.get(act_name) {
+                    b.vk == vk && b.ctrl == ctrl && b.alt == alt && b.shift == shift && b.win == win
+                } else {
+                    false
+                }
+            };
+
+            if matches_binding("exit_layer") && is_down {
+                LAYER_ACTIVE.store(false, Ordering::SeqCst);
+                dispatch(AppAction::LayerExit);
+                return LRESULT(1);
+            }
+            if matches_binding("volume_up") {
+                let vstep = if shift { fine_step } else { step };
+                if is_down { dispatch(AppAction::VolumeUp(vstep)); }
+                return LRESULT(1);
+            }
+            if matches_binding("volume_down") {
+                let vstep = if shift { fine_step } else { step };
+                if is_down { dispatch(AppAction::VolumeDown(vstep)); }
+                return LRESULT(1);
+            }
+            if matches_binding("next_app") {
+                if is_down { dispatch(AppAction::SelectNext); }
+                return LRESULT(1);
+            }
+            if matches_binding("prev_app") {
+                if is_down { dispatch(AppAction::SelectPrev); }
+                return LRESULT(1);
+            }
+            if matches_binding("toggle_mute") {
+                if is_down { dispatch(AppAction::ToggleMute); }
+                return LRESULT(1);
+            }
+            if matches_binding("play_pause") {
+                if is_down { dispatch(AppAction::PlayPause); }
+                return LRESULT(1);
+            }
+            if matches_binding("next_track") {
+                if is_down { dispatch(AppAction::NextTrack); }
+                return LRESULT(1);
+            }
+            if matches_binding("prev_track") {
+                if is_down { dispatch(AppAction::PrevTrack); }
+                return LRESULT(1);
+            }
+
             // Strictly isolate Main Enter from Numpad Enter
             if vk == VK_RETURN.0 as u32 {
                 if !is_extended {

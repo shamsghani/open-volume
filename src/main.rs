@@ -407,16 +407,19 @@ fn handle_tray_command(cmd_id: u32) {
             ID_TRAY_POS_BASE..=4005 => {
                 let idx = cmd_id - ID_TRAY_POS_BASE;
                 let pos = match idx {
-                    0 => "bottom-right",
+                    0 => "top-left",
                     1 => "top-center",
                     2 => "top-right",
-                    3 => "bottom-center",
+                    3 => "bottom-left",
+                    4 => "bottom-center",
+                    5 => "bottom-right",
                     _ => "",
                 };
                 if !pos.is_empty() {
                     let mut cfg = state.config.lock().unwrap();
                     cfg.appearance.position = pos.to_string();
                     cfg.save();
+                    state.overlay.recalc_height_and_reposition();
                     state.overlay.update_display();
                 }
             }

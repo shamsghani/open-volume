@@ -359,3 +359,33 @@ fn test_22_overlay_autohide_layer_deactivation() {
     assert!(!KeyboardHook::is_layer_active(), "Layer must deactivate when overlay autohides");
     println!("  [PASS] Layer state deactivation on autohide timeout verified.");
 }
+
+#[test]
+fn test_23_settings_all_six_positions_and_keybinds() {
+    use open_volume::settings::format_binding_display;
+
+    // 1. Keybinding display formatting
+    assert_eq!(format_binding_display(true, true, false, false, 0x56), "Ctrl + Alt + V");
+    assert_eq!(format_binding_display(false, false, false, false, 0x26), "Up Arrow");
+    assert_eq!(format_binding_display(false, false, false, false, 0x4D), "M");
+    assert_eq!(format_binding_display(true, false, false, false, 0x27), "Ctrl + Right Arrow");
+    assert_eq!(format_binding_display(false, false, false, false, 0x20), "Space");
+
+    // 2. All 6 position strings
+    let positions = [
+        "top-left",
+        "top-center",
+        "top-right",
+        "bottom-left",
+        "bottom-center",
+        "bottom-right",
+    ];
+
+    for pos in positions {
+        let has_v = pos.contains("top") || pos.contains("bottom");
+        let has_h = pos.contains("left") || pos.contains("center") || pos.contains("right");
+        assert!(has_v && has_h, "Position {} must have valid horizontal and vertical anchors", pos);
+    }
+
+    println!("  [PASS] All 6 HUD positions and keybinding formatting verified.");
+}

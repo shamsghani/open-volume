@@ -20,7 +20,7 @@ def publish_release():
     token = get_token()
     owner = "shamsghani"
     repo = "open-volume"
-    tag = "v2.0.2"
+    tag = "v2.1.0"
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -29,38 +29,47 @@ def publish_release():
     }
 
     # Release body notes
-    body_md = """# ⚡ Open-Volume 2.0.2 (Layer Deactivation on Timeout & Smooth Fade-Out)
+    body_md = """# ⚡ Open-Volume 2.1.0 (Themed Settings, 6-Position Monitor Selector & Keybinds)
 
-A bugfix release resolving layer persistence when the HUD overlay times out, and restoring the smooth hardware-accelerated slide-out and fade-out animation.
+A major feature release bringing full theme integration to the Settings menu, an interactive 6-position screen monitor selector, visual custom keybinding recording with a one-click reset to defaults, and a direct GitHub repository shortcut.
 
 ---
 
-### 🛠️ What's Fixed & Improved in v2.0.2
+### ✨ What's New in v2.1.0
 
-#### 1. 🔄 Layer Deactivation on Overlay Timeout
-- **Problem**: When the overlay reached its inactivity timeout and disappeared, Layer 2 remained active in the background. Numpad keys continued to be intercepted as audio controls instead of normal typing.
-- **Fix**: The autohide timer now immediately deactivates the low-level keyboard hook layer (`KeyboardHook::set_layer_active(false)`) and dispatches `AppAction::LayerExit`. Numpad keys immediately return to standard functionality.
+#### 1. 📐 Interactive 6-Position Screen Monitor Selector
+- Added a stylized monitor screen rectangle in the Settings menu illustrating all **6 screen anchor positions**:
+  - `Top-Left`, `Top-Center`, `Top-Right`
+  - `Bottom-Left`, `Bottom-Center`, `Bottom-Right`
+- Clicking any zone in the monitor frame immediately docks the HUD overlay to that display edge with real-time feedback and updates the system tray position submenu.
 
-#### 2. 🎬 Smooth Slide-Out & Fade-Out Animation
-- Restored the smooth cubic ease-in fade-out and slide-out animation (~100ms) matching the legacy experience.
-- When timing out or closing the overlay, the window smoothly glides away and fades out via DWM layered alpha instead of disappearing abruptly.
+#### 2. 🎨 Full Dynamic Theming in Settings Window
+- The Settings window now fully inherits and renders using your active theme palette (`bg_color`, `card_bg`, `selected_bg`, `accent_color`, `text_primary`, `border_color`).
+- Switching themes in the palette grid immediately transforms the Settings window in real-time.
+- Double-buffered Win32 memory DC rendering ensures 100% flicker-free repaints.
 
-#### 3. 🔊 Synchronized Audio Feedback & Tray Tooltip
-- Autohide timeout now properly updates the tray icon status to `READY` and triggers the layer-off sound cue (when sound feedback is enabled).
-- Standalone toast notifications (e.g. media keys) fade away after 2 seconds without triggering spurious layer-off sounds.
+#### 3. ⌨️ Manual Custom Keybinding Editor & 🔄 Reset to Defaults
+- Configure all 10 core shortcuts directly from the UI without touching `config.json`:
+  - *Toggle HUD Layer, Volume Up, Volume Down, Next App, Prev App, Toggle Mute, Global Mic Mute, Play/Pause, Next Track, Exit HUD*.
+- Click any shortcut button to enter interactive recording mode (`[ Press Key... ]`) — press any key or combination (Ctrl, Alt, Shift, Win) to rebind.
+- Press **Escape** anytime to cancel recording.
+- One-click **`🔄 Reset Defaults`** button instantly restores standard factory shortcuts.
+
+#### 4. ⭐ Direct GitHub Shortcut
+- Added a one-click **`⭐ View GitHub`** button in the Settings header to visit the repository for updates, star the project, and report feedback.
 
 ---
 
 ### 📦 Downloads & Installation
 
-- **`OpenVolume-v2.0.2-windows-x64.zip`**: Complete portable bundle (includes executable and docs).
-- **`open-volume.exe`**: Standalone portable single-file executable (521 KB). No installation required!
+- **`OpenVolume-v2.1.0-windows-x64.zip`**: Complete portable bundle (includes executable and docs).
+- **`open-volume.exe`**: Standalone portable single-file executable (524 KB). No installation required!
 """
 
     release_payload = {
         "tag_name": tag,
         "target_commitish": "main",
-        "name": "Open-Volume 2.0.2 (Layer Deactivation on Timeout & Fade-Out)",
+        "name": "Open-Volume 2.1.0 (Themed Settings, 6-Position Selector & Keybinds)",
         "body": body_md,
         "draft": False,
         "prerelease": False
@@ -99,7 +108,7 @@ A bugfix release resolving layer persistence when the HUD overlay times out, and
 
     # Assets to upload
     assets = [
-        ("dist/release/OpenVolume-v2.0.2-windows-x64.zip", "application/zip", "OpenVolume-v2.0.2-windows-x64.zip"),
+        ("dist/release/OpenVolume-v2.1.0-windows-x64.zip", "application/zip", "OpenVolume-v2.1.0-windows-x64.zip"),
         ("dist/release/open-volume.exe", "application/octet-stream", "open-volume.exe"),
         ("dist/release/OpenVolume-windows-x64.zip", "application/zip", "OpenVolume-windows-x64.zip")
     ]

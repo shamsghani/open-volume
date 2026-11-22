@@ -798,6 +798,18 @@ fn get_primary_work_area() -> (i32, i32, i32, i32) {
     }
 }
 
+pub fn refresh_overlay_position() {
+    unsafe {
+        if let Some(inst_ptr) = OVERLAY_INSTANCE {
+            let inst = &mut *inst_ptr;
+            if inst.visible {
+                inst.recalc_height_and_reposition();
+                let _ = InvalidateRect(inst.hwnd, None, false);
+            }
+        }
+    }
+}
+
 unsafe extern "system" fn overlay_wnd_proc(
     hwnd: HWND,
     msg: u32,

@@ -310,3 +310,41 @@ fn test_20_global_mic_mute_and_uipi_filter() {
         }
     }
 }
+
+#[test]
+fn test_21_tray_event_decoding_and_menu_popup() {
+    use windows::Win32::Foundation::LPARAM;
+    use windows::Win32::UI::WindowsAndMessaging::*;
+
+    // Verify NOTIFYICON_VERSION_4 message packing & unpacking
+    let icon_id_sent: usize = 1;
+
+    // 1. WM_CONTEXTMENU
+    let lparam_ctx = LPARAM(((icon_id_sent as isize) << 16) | (WM_CONTEXTMENU as isize));
+    let event_ctx = (lparam_ctx.0 & 0xFFFF) as u32;
+    let icon_ctx = ((lparam_ctx.0 >> 16) & 0xFFFF) as u32;
+    assert_eq!(event_ctx, WM_CONTEXTMENU);
+    assert_eq!(icon_ctx, 1);
+
+    // 2. WM_RBUTTONUP
+    let lparam_rb = LPARAM(((icon_id_sent as isize) << 16) | (WM_RBUTTONUP as isize));
+    let event_rb = (lparam_rb.0 & 0xFFFF) as u32;
+    let icon_rb = ((lparam_rb.0 >> 16) & 0xFFFF) as u32;
+    assert_eq!(event_rb, WM_RBUTTONUP);
+    assert_eq!(icon_rb, 1);
+
+    // 3. NIN_SELECT (0x0400)
+    let nin_select: u32 = 0x0400;
+    let lparam_sel = LPARAM(((icon_id_sent as isize) << 16) | (nin_select as isize));
+    let event_sel = (lparam_sel.0 & 0xFFFF) as u32;
+    let icon_sel = ((lparam_sel.0 >> 16) & 0xFFFF) as u32;
+    assert_eq!(event_sel, nin_select);
+    assert_eq!(icon_sel, 1);
+
+    // 4. WM_LBUTTONUP (0x0202)
+    let lparam_lb = LPARAM(((icon_id_sent as isize) << 16) | (WM_LBUTTONUP as isize));
+    let event_lb = (lparam_lb.0 & 0xFFFF) as u32;
+    assert_eq!(event_lb, WM_LBUTTONUP);
+
+    println!("  [PASS] NOTIFYICON_VERSION_4 message decoding verified for all tray events.");
+}

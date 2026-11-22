@@ -68,7 +68,7 @@ impl SettingsWindow {
 
     pub fn show(&self) {
         unsafe {
-            let _ = ShowWindow(self.hwnd, SW_SHOW);
+            let _ = ShowWindow(self.hwnd, SW_SHOWNORMAL);
             let _ = SetForegroundWindow(self.hwnd);
             let _ = InvalidateRect(self.hwnd, None, true);
         }

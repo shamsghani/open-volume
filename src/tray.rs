@@ -97,7 +97,17 @@ impl TrayIcon {
         }
     }
 
-    pub fn show_menu(&self, active_layer: bool, mic_muted: bool) {
+    pub fn show_menu(&self, active_layer: bool, mic_muted: bool, pos: Option<(i32, i32)>) {
+        static LAST_MENU_TIME: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        let prev = LAST_MENU_TIME.swap(now, std::sync::atomic::Ordering::Relaxed);
+        if now.saturating_sub(prev) < 350 {
+            return;
+        }
+
         unsafe {
             let menu = match CreatePopupMenu() {
                 Ok(m) => m,
@@ -182,9 +192,22 @@ impl TrayIcon {
             let _ = AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT as usize, w!("Exit"));
 
             let mut pt = POINT::default();
-            let _ = GetCursorPos(&mut pt);
+            if let Some((x, y)) = pos {
+                pt.x = x;
+                pt.y = y;
+            } else {
+                let _ = GetCursorPos(&mut pt);
+            }
             let _ = SetForegroundWindow(self.hwnd);
-            let _ = TrackPopupMenuEx(menu, (TPM_RIGHTALIGN | TPM_BOTTOMALIGN).0, pt.x, pt.y, self.hwnd, None);
+            let _ = TrackPopupMenuEx(
+                menu,
+                (TPM_LEFTALIGN | TPM_BOTTOMALIGN | TPM_RIGHTBUTTON).0,
+                pt.x,
+                pt.y,
+                self.hwnd,
+                None,
+            );
+            let _ = PostMessageW(self.hwnd, WM_NULL, WPARAM(0), LPARAM(0));
             let _ = DestroyMenu(menu);
         }
     }

@@ -198,15 +198,28 @@ unsafe extern "system" fn main_wnd_proc(
             LRESULT(0)
         }
         WM_APP_TRAY => {
-            let event = lparam.0 as u32;
+            let event = (lparam.0 & 0xFFFF) as u32;
+            let icon_id = ((lparam.0 >> 16) & 0xFFFF) as u32;
+            if event != WM_MOUSEMOVE {
+                log_event(&format!(
+                    "WM_APP_TRAY: event = 0x{:04X} ({}), icon_id = {}",
+                    event, event, icon_id
+                ));
+            }
             if event == WM_RBUTTONUP || event == WM_CONTEXTMENU {
+                let x = (wparam.0 & 0xFFFF) as i16 as i32;
+                let y = ((wparam.0 >> 16) & 0xFFFF) as i16 as i32;
+                let pos = if x != 0 || y != 0 { Some((x, y)) } else { None };
                 if let Some(ref mut state) = APP_STATE {
                     let mic_muted = state.mixer.lock().unwrap().get_microphone_info().2;
                     if let Some(ref tray) = state.tray {
-                        tray.show_menu(KeyboardHook::is_layer_active(), mic_muted);
+                        tray.show_menu(KeyboardHook::is_layer_active(), mic_muted, pos);
                     }
                 }
-            } else if event == WM_LBUTTONUP {
+            } else if event == WM_LBUTTONUP
+                || event == 0x0400 /* NIN_SELECT */
+                || event == 0x0401 /* NIN_KEYSELECT */
+            {
                 let cur = KeyboardHook::is_layer_active();
                 KeyboardHook::set_layer_active(!cur);
                 handle_app_action(if !cur { AppAction::LayerEnter } else { AppAction::LayerExit });

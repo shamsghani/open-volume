@@ -55,6 +55,7 @@ struct AppState {
 }
 
 static mut APP_STATE: Option<AppState> = None;
+static mut WM_TASKBAR_CREATED: u32 = 0;
 
 fn main() {
     log_event("Starting Open-Volume...");
@@ -134,7 +135,7 @@ fn create_message_window() -> HWND {
 
         RegisterClassExW(&wnd_class);
 
-        CreateWindowExW(
+        let hwnd = CreateWindowExW(
             WINDOW_EX_STYLE(0),
             PCWSTR(class_name.as_ptr()),
             w!("OpenVolumeMainMsgReceiver"),
@@ -147,7 +148,17 @@ fn create_message_window() -> HWND {
             None,
             hinst,
             None,
-        ).unwrap_or(HWND(std::ptr::null_mut()))
+        ).unwrap_or(HWND(std::ptr::null_mut()));
+
+        // Register TaskbarCreated message and allow through UIPI filter so elevated app receives it
+        WM_TASKBAR_CREATED = RegisterWindowMessageW(w!("TaskbarCreated"));
+        if WM_TASKBAR_CREATED != 0 {
+            let _ = ChangeWindowMessageFilter(WM_TASKBAR_CREATED, MSGFLT_ADD);
+        }
+        let _ = ChangeWindowMessageFilter(WM_APP_TRAY, MSGFLT_ADD);
+        let _ = ChangeWindowMessageFilter(WM_COMMAND, MSGFLT_ADD);
+
+        hwnd
     }
 }
 
@@ -157,7 +168,29 @@ unsafe extern "system" fn main_wnd_proc(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
+    if msg == WM_TASKBAR_CREATED && WM_TASKBAR_CREATED != 0 {
+        log_event("Received TaskbarCreated broadcast from Explorer! Re-registering tray icon...");
+        if let Some(ref mut state) = APP_STATE {
+            if let Some(ref mut tray) = state.tray {
+                tray.add_or_update();
+            }
+        }
+        return LRESULT(0);
+    }
+
     match msg {
+        WM_TIMER => {
+            if wparam.0 == tray::TIMER_TRAY_RETRY {
+                if let Some(ref mut state) = APP_STATE {
+                    if let Some(ref mut tray) = state.tray {
+                        if tray.add_or_update() {
+                            let _ = KillTimer(hwnd, tray::TIMER_TRAY_RETRY);
+                        }
+                    }
+                }
+            }
+            LRESULT(0)
+        }
         WM_APP_ACTION => {
             if let Some(action) = decode_action(wparam) {
                 handle_app_action(action);
@@ -258,7 +291,7 @@ fn handle_app_action(action: AppAction) {
             }
             AppAction::ToggleMicMute => {
                 let muted = state.mixer.lock().unwrap().toggle_microphone_mute();
-                let msg = if muted { "Microphone MUTED" } else { "Microphone LIVE" };
+                let msg = if muted { "All Microphones MUTED" } else { "All Microphones LIVE" };
                 state.overlay.show_toast(msg, "🎙️");
                 state.overlay.update_display();
                 if sound_enabled { sound::play_mute(); }

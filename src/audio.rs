@@ -332,18 +332,49 @@ impl AudioMixer {
     pub fn get_microphone_info(&self) -> (String, i32, bool) {
         unsafe {
             if let Ok(enumerator) = CoCreateInstance::<_, IMMDeviceEnumerator>(&MMDeviceEnumerator, None, CLSCTX_ALL) {
-                if let Ok(mic_device) = enumerator.GetDefaultAudioEndpoint(eCapture, eConsole) {
-                    let mut vol_pct = 100;
-                    let mut is_muted = false;
-                    if let Ok(vol) = mic_device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) {
-                        if let Ok(scalar) = vol.GetMasterVolumeLevelScalar() {
-                            vol_pct = (scalar * 100.0).round() as i32;
+                if let Ok(collection) = enumerator.EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE) {
+                    let count = collection.GetCount().unwrap_or(0);
+                    if count > 0 {
+                        let mut any_unmuted = false;
+                        let mut primary_vol = 100;
+                        let mut valid_count = 0;
+
+                        for i in 0..count {
+                            if let Ok(device) = collection.Item(i) {
+                                if let Ok(vol) = device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) {
+                                    valid_count += 1;
+                                    let is_muted = vol.GetMute().map(|m| m.as_bool()).unwrap_or(false);
+                                    if !is_muted {
+                                        any_unmuted = true;
+                                    }
+                                    if valid_count == 1 {
+                                        if let Ok(scalar) = vol.GetMasterVolumeLevelScalar() {
+                                            primary_vol = (scalar * 100.0).round() as i32;
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        if let Ok(m) = vol.GetMute() {
-                            is_muted = m.as_bool();
+
+                        // Also check default endpoints (Console & Communications)
+                        for role in [eConsole, eCommunications] {
+                            if let Ok(device) = enumerator.GetDefaultAudioEndpoint(eCapture, role) {
+                                if let Ok(vol) = device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) {
+                                    let is_muted = vol.GetMute().map(|m| m.as_bool()).unwrap_or(false);
+                                    if !is_muted {
+                                        any_unmuted = true;
+                                    }
+                                }
+                            }
                         }
+
+                        let label = if count == 1 {
+                            "Default Microphone".to_string()
+                        } else {
+                            format!("All Microphones ({})", count)
+                        };
+                        return (label, primary_vol, !any_unmuted);
                     }
-                    return ("Default Microphone".to_string(), vol_pct, is_muted);
                 }
             }
         }
@@ -353,13 +384,45 @@ impl AudioMixer {
     pub fn toggle_microphone_mute(&mut self) -> bool {
         unsafe {
             if let Ok(enumerator) = CoCreateInstance::<_, IMMDeviceEnumerator>(&MMDeviceEnumerator, None, CLSCTX_ALL) {
-                if let Ok(mic_device) = enumerator.GetDefaultAudioEndpoint(eCapture, eConsole) {
-                    if let Ok(vol) = mic_device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) {
-                        let cur_mute = vol.GetMute().map(|m| m.as_bool()).unwrap_or(false);
-                        let new_mute = !cur_mute;
-                        let _ = vol.SetMute(new_mute, std::ptr::null());
-                        return new_mute;
+                if let Ok(collection) = enumerator.EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE) {
+                    let count = collection.GetCount().unwrap_or(0);
+                    let mut any_unmuted = false;
+                    let mut vols = Vec::new();
+
+                    for i in 0..count {
+                        if let Ok(device) = collection.Item(i) {
+                            if let Ok(vol) = device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) {
+                                let is_muted = vol.GetMute().map(|m| m.as_bool()).unwrap_or(false);
+                                if !is_muted {
+                                    any_unmuted = true;
+                                }
+                                vols.push(vol);
+                            }
+                        }
                     }
+
+                    // Also include both default endpoints (Console and Communications for Discord)
+                    for role in [eConsole, eCommunications] {
+                        if let Ok(device) = enumerator.GetDefaultAudioEndpoint(eCapture, role) {
+                            if let Ok(vol) = device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) {
+                                let is_muted = vol.GetMute().map(|m| m.as_bool()).unwrap_or(false);
+                                if !is_muted {
+                                    any_unmuted = true;
+                                }
+                                vols.push(vol);
+                            }
+                        }
+                    }
+
+                    // Global mute logic: if ANY mic is unmuted, mute all of them.
+                    // If all are already muted, unmute all of them.
+                    let target_mute = any_unmuted;
+
+                    for vol in &vols {
+                        let _ = vol.SetMute(target_mute, std::ptr::null());
+                    }
+
+                    return target_mute;
                 }
             }
         }

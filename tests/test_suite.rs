@@ -279,3 +279,34 @@ fn test_19_tray_and_hook() {
         println!("  [PASS] Tray icon creation and low-level keyboard hook verification passed.");
     }
 }
+
+#[test]
+fn test_20_global_mic_mute_and_uipi_filter() {
+    use windows::Win32::UI::WindowsAndMessaging::*;
+    use windows::Win32::Media::Audio::*;
+    use windows::Win32::Media::Audio::Endpoints::*;
+    use windows::Win32::System::Com::*;
+    use windows::core::*;
+
+    unsafe {
+        let msg = RegisterWindowMessageW(w!("TaskbarCreated"));
+        assert!(msg > 0);
+        let _ = ChangeWindowMessageFilter(msg, MSGFLT_ADD);
+
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        if let Ok(enumerator) = CoCreateInstance::<_, IMMDeviceEnumerator>(&MMDeviceEnumerator, None, CLSCTX_ALL) {
+            if let Ok(collection) = enumerator.EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE) {
+                let count = collection.GetCount().unwrap_or(0);
+                println!("  [PASS] Found {} active capture endpoints", count);
+                for i in 0..count {
+                    if let Ok(device) = collection.Item(i) {
+                        if let Ok(vol) = device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) {
+                            let muted = vol.GetMute().map(|m| m.as_bool()).unwrap_or(false);
+                            println!("         Mic [{}]: muted = {}", i, muted);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

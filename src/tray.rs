@@ -19,6 +19,7 @@ pub const ID_TRAY_EXIT: u32 = 1006;
 pub const ID_TRAY_THEME_BASE: u32 = 2000;
 pub const ID_TRAY_PROFILE_BASE: u32 = 3000;
 pub const ID_TRAY_POS_BASE: u32 = 4000;
+pub const TIMER_TRAY_RETRY: usize = 9999;
 
 pub struct TrayIcon {
     hwnd: HWND,
@@ -48,24 +49,52 @@ impl TrayIcon {
         nid.szTip[..len].copy_from_slice(&wide[..len]);
         nid.szTip[len] = 0;
 
-        unsafe {
-            for attempt in 0..5 {
-                let success = Shell_NotifyIconW(NIM_ADD, &nid).as_bool();
-                crate::log_event(&format!("Shell_NotifyIconW attempt {}: success = {}, err = {}", attempt, success, GetLastError().0));
-                if success {
-                    nid.Anonymous.uVersion = NOTIFYICON_VERSION_4;
-                    let _ = Shell_NotifyIconW(NIM_SETVERSION, &nid);
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(150));
+        let mut tray = Self { hwnd, nid, config };
+        if !tray.add_or_update() {
+            crate::log_event("Initial tray add pending (Explorer starting up). Arming 1s retry timer.");
+            unsafe {
+                let _ = SetTimer(hwnd, TIMER_TRAY_RETRY, 1000, None);
             }
         }
-
-        Self { hwnd, nid, config }
+        tray
     }
 
-    pub fn set_active_state(&mut self, _active: bool) {
-        // High quality branded icon remains crisp in tray
+    pub fn add_or_update(&mut self) -> bool {
+        unsafe {
+            if Shell_NotifyIconW(NIM_ADD, &self.nid).as_bool() {
+                self.nid.Anonymous.uVersion = NOTIFYICON_VERSION_4;
+                let _ = Shell_NotifyIconW(NIM_SETVERSION, &self.nid);
+                crate::log_event("Shell_NotifyIconW: Tray icon successfully registered with Explorer!");
+                let _ = KillTimer(self.hwnd, TIMER_TRAY_RETRY);
+                return true;
+            } else {
+                let err = GetLastError().0;
+                // If it already exists in the tray, try NIM_MODIFY
+                if Shell_NotifyIconW(NIM_MODIFY, &self.nid).as_bool() {
+                    crate::log_event("Shell_NotifyIconW: Tray icon updated via NIM_MODIFY");
+                    let _ = KillTimer(self.hwnd, TIMER_TRAY_RETRY);
+                    return true;
+                }
+                crate::log_event(&format!("Shell_NotifyIconW attempt failed: err = {}", err));
+            }
+        }
+        false
+    }
+
+    pub fn set_active_state(&mut self, active: bool) {
+        let tip = if active {
+            "Open-Volume: ACTIVE (Layer 2)"
+        } else {
+            "Open-Volume: Audio Mixer"
+        };
+        let h_tip = HSTRING::from(tip);
+        let wide = h_tip.as_wide();
+        let len = wide.len().min(self.nid.szTip.len() - 1);
+        self.nid.szTip[..len].copy_from_slice(&wide[..len]);
+        self.nid.szTip[len] = 0;
+        unsafe {
+            let _ = Shell_NotifyIconW(NIM_MODIFY, &self.nid);
+        }
     }
 
     pub fn show_menu(&self, active_layer: bool, mic_muted: bool) {
